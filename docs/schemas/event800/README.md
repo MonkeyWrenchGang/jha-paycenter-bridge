@@ -20,18 +20,35 @@ This folder contains example JSON payloads for Event 800 (Payment Hub Activity N
 
 *Pending JH integration team response — see Appendix A Q1–Q5*
 
+## PII Stripping Policy
+
+The bridge service strips the following fields before publishing to Pub/Sub. These fields are present in the raw JH EES event but must never be forwarded to downstream consumers.
+
+| Field | Reason |
+|-------|--------|
+| `tokenValue` | PII — contains the sender/receiver phone number or email address, even when masked |
+| `displayName` | PII — contains a person's name |
+| `memo` | PII — free-text field that may contain account numbers, names, or other sensitive content |
+
+`tokenType` is retained (it indicates `EMAIL` or `PHONE`) as it carries no PII on its own and is useful for routing logic. `accountToken` is retained as it is an opaque, institution-scoped reference with no meaning outside JH's systems.
+
+This stripping logic should be implemented in the bridge's payload sanitiser before the Pub/Sub publish step and covered by unit tests.
+
 ## Key Zelle-Specific Fields
 
-| Field | Description |
-|-------|-------------|
-| `zelleTransactionId` | Zelle network transaction ID (ZL- prefix) |
-| `ewsTransactionId` | Early Warning Services internal transaction ID |
-| `tokenType` | How the receiver was addressed: `EMAIL` or `PHONE` |
-| `tokenValue` | Masked alias (phone or email) — never the raw account number |
-| `fraudIndicators.riskScore` | EWS Financial Crimes Defender risk score (0–100) |
-| `fraudIndicators.riskBand` | Risk band: `LOW`, `MEDIUM`, `HIGH` |
-| `fraudIndicators.fdcFlags` | Array of Financial Crimes Defender flag codes, if any |
-| `returnReasonCode` | ISO 20022 reason code on `FAILED` or `RETURNED` events |
+| Field | Retained? | Description |
+|-------|-----------|-------------|
+| `zelleTransactionId` | ✅ | Zelle network transaction ID (ZL- prefix) |
+| `ewsTransactionId` | ✅ | Early Warning Services internal transaction ID |
+| `accountToken` | ✅ | Opaque institution-scoped account reference — safe to pass downstream |
+| `tokenType` | ✅ | How the receiver was addressed: `EMAIL` or `PHONE` — no PII |
+| `tokenValue` | ❌ Stripped | Phone number or email address — PII, must not leave the bridge |
+| `displayName` | ❌ Stripped | Person's name — PII, must not leave the bridge |
+| `memo` | ❌ Stripped | Free-text memo — may contain PII or sensitive content |
+| `fraudIndicators.riskScore` | ✅ | EWS Financial Crimes Defender risk score (0–100) |
+| `fraudIndicators.riskBand` | ✅ | Risk band: `LOW`, `MEDIUM`, `HIGH` |
+| `fraudIndicators.fdcFlags` | ✅ | Array of Financial Crimes Defender flag codes, if any |
+| `returnReasonCode` | ✅ | ISO 20022 reason code on `FAILED` or `RETURNED` events |
 
 ## Common Return Reason Codes
 
