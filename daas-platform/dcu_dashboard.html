@@ -4,715 +4,731 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>DaaS Platform — Data Credits Dashboard</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.12.7/Recharts.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #EEF4FB; color: #1B2A4A; }
-  button { font-family: inherit; }
-  ::-webkit-scrollbar { width: 6px; }
-  ::-webkit-scrollbar-track { background: #EEF4FB; }
-  ::-webkit-scrollbar-thumb { background: #B8CDE0; border-radius: 3px; }
+/* ── Reset & Base ────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+       background: #EEF4FB; color: #1B2A4A; height: 100vh; display: flex; flex-direction: column; }
+button { font-family: inherit; cursor: pointer; }
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: #EEF4FB; }
+::-webkit-scrollbar-thumb { background: #B8CDE0; border-radius: 3px; }
+
+/* ── Top bar ─────────────────────────────────────────────────────────────── */
+#topbar {
+  background: #1B2A4A; color: #fff; height: 56px; display: flex;
+  align-items: center; padding: 0 24px; gap: 12px; flex-shrink: 0;
+  box-shadow: 0 2px 10px rgba(0,0,0,.25);
+}
+#topbar .logo {
+  width: 30px; height: 30px; background: #00A896; border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 900; font-size: 17px; color: #fff; flex-shrink: 0;
+}
+#topbar .title  { font-weight: 700; font-size: 16px; }
+#topbar .sep    { color: #CADCFC44; font-size: 20px; }
+#topbar .sub    { color: #CADCFC; font-size: 13px; }
+#topbar .right  { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+#topbar .pill   { background: #ffffff18; border-radius: 7px; padding: 4px 12px;
+                  font-size: 12px; color: #CADCFC; }
+#topbar .avatar { width: 32px; height: 32px; background: #00A896; border-radius: 50%;
+                  display: flex; align-items: center; justify-content: center;
+                  font-weight: 800; font-size: 12px; color: #fff; }
+#alert-bar { display: none; background: #FFFBEB; border-bottom: 1px solid #F5A62388;
+             padding: 10px 24px; font-size: 12.5px; color: #92400E;
+             align-items: flex-start; gap: 10px; }
+#alert-bar.show { display: flex; }
+#alert-bar strong { color: #92400E; }
+
+/* ── Layout ──────────────────────────────────────────────────────────────── */
+#layout { display: flex; flex: 1; overflow: hidden; }
+
+/* ── Sidebar ─────────────────────────────────────────────────────────────── */
+#sidebar {
+  width: 210px; background: #fff; border-right: 1px solid #D6E4F0;
+  display: flex; flex-direction: column; flex-shrink: 0; overflow-y: auto;
+  padding: 18px 0;
+}
+.nav-label { padding: 0 20px 10px; font-size: 10px; font-weight: 700;
+             color: #8298B3; letter-spacing: 1.5px; text-transform: uppercase; }
+.nav-btn {
+  display: block; width: 100%; text-align: left; padding: 10px 20px;
+  border: none; background: transparent; color: #1B2A4A; font-size: 13px;
+  border-left: 3px solid transparent; transition: all .15s; margin-bottom: 2px;
+}
+.nav-btn:hover { background: #EEF4FB; color: #0A6B9A; }
+.nav-btn.active { background: #00A89618; color: #00A896; font-weight: 700;
+                  border-left-color: #00A896; }
+.sidebar-divider { border: none; border-top: 1px solid #EEF4FB; margin: 16px 14px; }
+.sidebar-kv { display: flex; justify-content: space-between; font-size: 12px;
+              padding: 0 20px; margin-bottom: 8px; }
+.sidebar-kv .k { color: #8298B3; }
+.sidebar-kv .v { font-weight: 600; }
+.balance-box {
+  margin: 14px 14px 0; background: #00A89614; border: 1px solid #00A89644;
+  border-radius: 10px; padding: 14px; text-align: center;
+}
+.balance-box .bal-label { font-size: 10px; text-transform: uppercase; letter-spacing: .9px;
+                          color: #8298B3; font-weight: 600; margin-bottom: 4px; }
+.balance-box .bal-value { font-size: 24px; font-weight: 800; color: #00A896; }
+.balance-box .bal-sub   { font-size: 10px; color: #8298B3; margin-top: 2px; }
+
+/* ── Main content ────────────────────────────────────────────────────────── */
+#main { flex: 1; padding: 24px 28px; overflow-y: auto; }
+.tab { display: none; }
+.tab.active { display: block; }
+
+h2.page-title { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+.page-sub { font-size: 12px; color: #8298B3; margin-bottom: 20px; }
+
+/* ── KPI cards ───────────────────────────────────────────────────────────── */
+.kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+.kpi-card {
+  background: #fff; border-radius: 12px; padding: 16px 18px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.07); border: 1px solid #D6E4F0;
+  border-top: 3px solid var(--accent);
+}
+.kpi-label { font-size: 10.5px; color: #8298B3; font-weight: 600;
+             text-transform: uppercase; letter-spacing: .9px; margin-bottom: 7px; }
+.kpi-value { font-size: 22px; font-weight: 800; color: var(--accent); line-height: 1; }
+.kpi-sub   { font-size: 11px; color: #8298B3; margin-top: 4px; }
+
+/* ── Cards / panels ──────────────────────────────────────────────────────── */
+.panel {
+  background: #fff; border-radius: 12px; padding: 20px 22px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.07); border: 1px solid #D6E4F0; margin-bottom: 18px;
+}
+.panel-title { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+.panel-sub   { font-size: 12px; color: #8298B3; margin-bottom: 16px; }
+.two-col { display: grid; grid-template-columns: 1fr 1.7fr; gap: 16px; margin-bottom: 20px; }
+.two-col-equal { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 18px; }
+
+/* ── Gauge ───────────────────────────────────────────────────────────────── */
+#gauge-wrap { text-align: center; }
+#gauge-nums { text-align: center; margin-top: 8px; }
+#gauge-nums .big  { font-size: 26px; font-weight: 800; color: #0A6B9A; }
+#gauge-nums .of   { font-size: 13px; color: #8298B3; }
+#prog-bar-wrap { margin: 14px 0 6px; }
+#prog-bar-bg { background: #D6E4F0; border-radius: 999px; height: 8px; }
+#prog-bar-fill { background: linear-gradient(90deg, #00A896, #0A6B9A);
+                 height: 8px; border-radius: 999px; transition: width .8s ease; }
+#prog-labels { display: flex; justify-content: space-between; font-size: 11px; color: #8298B3; margin-top: 4px; }
+
+/* ── Pie legend ──────────────────────────────────────────────────────────── */
+.pie-wrap { display: flex; align-items: center; gap: 10px; }
+.pie-canvas-wrap { flex-shrink: 0; }
+.pie-legend { flex: 1; }
+.pie-legend-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: 12px; }
+.pie-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+.pie-name { flex: 1; color: #1B2A4A; }
+.pie-val  { font-weight: 700; }
+
+/* ── Activity table ──────────────────────────────────────────────────────── */
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+thead th { padding: 9px 13px; text-align: left; color: #8298B3; font-weight: 600;
+           font-size: 10.5px; text-transform: uppercase; letter-spacing: .8px;
+           border-bottom: 2px solid #D6E4F0; background: #EEF4FB; }
+thead th.r { text-align: right; }
+tbody td { padding: 10px 13px; border-bottom: 1px solid #EEF4FB; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover { background: #FAFCFF; }
+.badge {
+  font-size: 10px; font-weight: 700; padding: 2px 9px; border-radius: 999px;
+  border: 1px solid; white-space: nowrap;
+}
+.cr-neg { font-weight: 700; text-align: right; }
+.cr-pos { font-weight: 700; text-align: right; color: #00A896; }
+.cr-big { color: #E53E3E; }
+
+/* ── Services breakdown ──────────────────────────────────────────────────── */
+.svc-table thead th { background: #EEF4FB; }
+.svc-table tbody td { vertical-align: middle; }
+.svc-dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 8px; }
+.bar-cell { display: flex; align-items: center; gap: 8px; }
+.bar-bg { flex: 1; background: #EEF4FB; border-radius: 999px; height: 7px; min-width: 80px; }
+.bar-fill { height: 100%; border-radius: 999px; }
+.bar-pct { font-size: 11px; color: #8298B3; min-width: 28px; text-align: right; }
+.svc-total-row { background: #EEF4FB; font-weight: 700; border-top: 2px solid #D6E4F0 !important; }
+
+/* ── Rate card (dark) ────────────────────────────────────────────────────── */
+.rate-card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+.rate-row {
+  display: flex; justify-content: space-between; align-items: center;
+  background: #ffffff0d; border-radius: 7px; padding: 8px 12px;
+  border: 1px solid; font-size: 12px;
+}
+.rate-name { display: flex; align-items: center; gap: 8px; color: #CADCFC; }
+.rate-val  { font-weight: 700; }
+.rate-footnote { margin-top: 12px; font-size: 11px; color: #8298B3; font-style: italic; }
+
+/* ── Alert panels ────────────────────────────────────────────────────────── */
+.alert-panel {
+  background: #fff; border-radius: 12px; padding: 18px 20px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.07); border: 1px solid #D6E4F0;
+}
+.alert-panel.fired { border-color: var(--ac)88; background: color-mix(in srgb, var(--ac) 6%, white); }
+.alert-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.alert-dot { width: 11px; height: 11px; border-radius: 50%; background: var(--ac); flex-shrink: 0; }
+.alert-name { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.alert-status { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
+.status-fired { background: color-mix(in srgb, var(--ac) 20%, transparent); color: var(--ac); }
+.status-armed { background: #EEF4FB; color: #8298B3; }
+.alert-msg  { font-size: 12px; color: #555; margin-bottom: 8px; line-height: 1.5; }
+.alert-rcpt { font-size: 11px; color: #8298B3; }
+.topup-box { background: #00A89610; border: 1px solid #00A89644; border-radius: 12px; padding: 20px; }
+.topup-title { font-size: 14px; font-weight: 700; color: #00A896; margin-bottom: 6px; }
+.topup-desc  { font-size: 12px; color: #1B2A4A; margin-bottom: 14px; line-height: 1.5; }
+.topup-row { display: flex; justify-content: space-between; align-items: center;
+             padding: 10px 0; border-bottom: 1px solid #D6E4F088; }
+.topup-row:last-of-type { border-bottom: none; }
+.topup-label { font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+.topup-saving { font-size: 10px; font-weight: 700; color: #00A896;
+                background: #00A89618; padding: 2px 8px; border-radius: 999px; }
+.topup-btn { background: #00A896; color: #fff; border: none; padding: 7px 18px;
+             border-radius: 7px; font-size: 12px; font-weight: 700; }
+.topup-btn:hover { opacity: .85; }
+.topup-note { font-size: 11px; color: #8298B3; font-style: italic; margin-top: 10px; }
+
+/* ── Dark panel ──────────────────────────────────────────────────────────── */
+.panel-dark { background: #1B2A4A; border-color: #1B2A4A; }
+.panel-dark .panel-title { color: #fff; }
 </style>
 </head>
 <body>
-<div id="root"></div>
 
-<script type="text/babel">
-const { useState, useEffect } = React;
-const {
-  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
-} = Recharts;
+<!-- ── Top bar ── -->
+<div id="topbar">
+  <div class="logo">D</div>
+  <span class="title">DaaS Platform</span>
+  <span class="sep">|</span>
+  <span class="sub">Data Credits Dashboard</span>
+  <div class="right">
+    <div class="pill" id="topbar-alert" style="display:none;background:#F5A62322;border:1px solid #F5A62355;color:#F5A623;font-weight:600;"></div>
+    <div class="pill">gcp-daas-alpha-001</div>
+    <div class="avatar">BA</div>
+  </div>
+</div>
 
-// ── Palette ────────────────────────────────────────────────────────────────
-const C = {
-  navy:    "#1B2A4A",
-  ocean:   "#0A6B9A",
-  teal:    "#00A896",
-  light:   "#EEF4FB",
-  mid:     "#8298B3",
-  white:   "#FFFFFF",
-  bq:      "#0A6B9A",
-  storage: "#00796B",
-  api:     "#6A4C93",
-  portal:  "#E06C75",
-  gold:    "#F5A623",
-  warn:    "#E53E3E",
+<!-- ── Alert bar ── -->
+<div id="alert-bar">
+  <span style="font-size:18px;flex-shrink:0">⚠️</span>
+  <div>
+    <strong id="alert-headline"></strong><br>
+    <span id="alert-detail"></span>
+  </div>
+</div>
+
+<div id="layout">
+
+  <!-- ── Sidebar ── -->
+  <div id="sidebar">
+    <div class="nav-label">Navigation</div>
+    <button class="nav-btn active" data-tab="overview">📊&nbsp; Overview</button>
+    <button class="nav-btn" data-tab="usage">📈&nbsp; Usage Trend</button>
+    <button class="nav-btn" data-tab="services">⚙️&nbsp; Services</button>
+    <button class="nav-btn" data-tab="alerts">🔔&nbsp; Alerts</button>
+
+    <hr class="sidebar-divider">
+    <div class="nav-label" style="margin-top:4px">Account</div>
+    <div class="sidebar-kv"><span class="k">Customer</span><span class="v">Bank Alpha</span></div>
+    <div class="sidebar-kv"><span class="k">Tier</span><span class="v" style="color:#0A6B9A">Professional</span></div>
+    <div class="sidebar-kv"><span class="k">Period</span><span class="v">March 2026</span></div>
+    <div class="sidebar-kv"><span class="k">Days left</span><span class="v">13 days</span></div>
+
+    <div class="balance-box">
+      <div class="bal-label">Remaining</div>
+      <div class="bal-value" id="sidebar-remaining"></div>
+      <div class="bal-sub">Data Credits</div>
+    </div>
+  </div>
+
+  <!-- ── Main ── -->
+  <div id="main">
+
+    <!-- OVERVIEW -->
+    <div class="tab active" id="tab-overview">
+      <h2 class="page-title">Overview — March 2026</h2>
+      <p class="page-sub">Last updated: Mar 18, 2026 at 14:22</p>
+
+      <div class="kpi-grid">
+        <div class="kpi-card" style="--accent:#0A6B9A">
+          <div class="kpi-label">Monthly Allocation</div>
+          <div class="kpi-value" id="kpi-alloc"></div>
+          <div class="kpi-sub">$500 / month · Professional tier</div>
+        </div>
+        <div class="kpi-card" style="--accent:#00A896">
+          <div class="kpi-label">Credits Used</div>
+          <div class="kpi-value" id="kpi-used"></div>
+          <div class="kpi-sub" id="kpi-used-sub"></div>
+        </div>
+        <div class="kpi-card" id="kpi-rem-card" style="--accent:#00A896">
+          <div class="kpi-label">Credits Remaining</div>
+          <div class="kpi-value" id="kpi-remaining"></div>
+          <div class="kpi-sub">13 days left in period</div>
+        </div>
+        <div class="kpi-card" style="--accent:#8298B3">
+          <div class="kpi-label">Daily Burn Rate</div>
+          <div class="kpi-value">225 Credits</div>
+          <div class="kpi-sub" id="kpi-burn-sub"></div>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <!-- Gauge -->
+        <div class="panel">
+          <div class="panel-title">Budget Utilisation</div>
+          <div id="gauge-wrap">
+            <canvas id="gaugeChart" width="220" height="130" style="display:block;margin:8px auto 0"></canvas>
+          </div>
+          <div id="gauge-nums">
+            <span class="big" id="gauge-used-num"></span>
+            <span class="of"> / <span id="gauge-alloc-num"></span> Credits</span>
+          </div>
+          <div id="prog-bar-wrap">
+            <div id="prog-bar-bg"><div id="prog-bar-fill"></div></div>
+          </div>
+          <div id="prog-labels">
+            <span>⚠ 75% alert threshold</span>
+            <span id="prog-pct-label"></span>
+          </div>
+        </div>
+
+        <!-- Donut -->
+        <div class="panel">
+          <div class="panel-title">Credits by Service</div>
+          <div class="pie-wrap" style="margin-top:10px">
+            <div class="pie-canvas-wrap">
+              <canvas id="pieChart" width="200" height="200"></canvas>
+            </div>
+            <div class="pie-legend" id="pie-legend"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Activity table -->
+      <div class="panel">
+        <div class="panel-title">Recent Activity</div>
+        <table style="margin-top:12px">
+          <thead>
+            <tr>
+              <th>Time</th><th>Event</th><th>Service</th><th class="r">Credits</th>
+            </tr>
+          </thead>
+          <tbody id="activity-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- USAGE TREND -->
+    <div class="tab" id="tab-usage">
+      <h2 class="page-title">Daily Usage Trend — March 2026</h2>
+      <p class="page-sub">Credits consumed per day, by service</p>
+
+      <div class="panel">
+        <div class="panel-title">Stacked Credit spend by service</div>
+        <div class="panel-sub">Daily totals — hover for detail</div>
+        <canvas id="areaChart" height="100"></canvas>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Credits by service per day</div>
+        <div class="panel-sub">Side-by-side comparison of top consumers</div>
+        <canvas id="barChart" height="80"></canvas>
+      </div>
+    </div>
+
+    <!-- SERVICES -->
+    <div class="tab" id="tab-services">
+      <h2 class="page-title">Service Breakdown &amp; Rate Card</h2>
+      <p class="page-sub">Published rates are fixed for your current contract term</p>
+
+      <div class="panel" style="padding:0;overflow:hidden">
+        <div style="padding:16px 22px;border-bottom:1px solid #EEF4FB;font-size:13px;font-weight:700">
+          This Month's Credit Consumption
+        </div>
+        <table class="svc-table">
+          <thead>
+            <tr>
+              <th>Service</th>
+              <th style="text-align:right">Credits Used</th>
+              <th style="text-align:right">Published Rate</th>
+              <th style="text-align:right">% of Budget</th>
+              <th style="text-align:right">Utilisation</th>
+            </tr>
+          </thead>
+          <tbody id="svc-body"></tbody>
+        </table>
+      </div>
+
+      <div class="panel panel-dark">
+        <div class="panel-title">📋  Published Rate Card</div>
+        <div class="rate-card-grid" id="rate-card-grid"></div>
+        <div class="rate-footnote">★ Rates are fixed for the duration of your contract term. 1 Data Credit = $0.10 of platform value.</div>
+      </div>
+    </div>
+
+    <!-- ALERTS -->
+    <div class="tab" id="tab-alerts">
+      <h2 class="page-title">Alert Configuration</h2>
+      <p class="page-sub">Threshold alerts notify your team automatically — no manual monitoring required</p>
+
+      <div class="two-col-equal" id="alerts-grid"></div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /layout -->
+
+<script>
+// ── Data ──────────────────────────────────────────────────────────────────
+const ALLOC = 5000;
+const USED  = 4100;
+const PCT   = Math.round(USED / ALLOC * 100);
+const REM   = ALLOC - USED;
+
+const SERVICES = [
+  { name: "BigQuery Queries",    credits: 1510, rate: "50 Credits / TB",       color: "#0A6B9A" },
+  { name: "BigQuery Storage",    credits: 290,  rate: "0.2 Credits / GB/mo",   color: "#0A6B9A" },
+  { name: "Cloud Storage",       credits: 230,  rate: "0.2 Credits / GB/mo",   color: "#00796B" },
+  { name: "Data Ingestion API",  credits: 650,  rate: "5 Credits / 1K calls",  color: "#6A4C93" },
+  { name: "Analytics API",       credits: 310,  rate: "3 Credits / 1K calls",  color: "#6A4C93" },
+  { name: "Portal Exports",      credits: 110,  rate: "1 Credit / export",     color: "#E06C75" },
+];
+
+const DAILY = [
+  { day:"Mar 1",  bq:120, storage:18, api:65, portal:5  },
+  { day:"Mar 3",  bq:145, storage:18, api:80, portal:8  },
+  { day:"Mar 5",  bq:95,  storage:19, api:55, portal:4  },
+  { day:"Mar 7",  bq:210, storage:19, api:90, portal:10 },
+  { day:"Mar 9",  bq:160, storage:20, api:75, portal:6  },
+  { day:"Mar 11", bq:190, storage:20, api:85, portal:8  },
+  { day:"Mar 13", bq:130, storage:20, api:60, portal:5  },
+  { day:"Mar 15", bq:175, storage:21, api:95, portal:9  },
+  { day:"Mar 17", bq:200, storage:21, api:100,portal:7  },
+  { day:"Mar 18", bq:85,  storage:10, api:40, portal:3  },
+];
+
+const ACTIVITY = [
+  { time:"Today 14:22", event:"BigQuery job completed",           credits:-42,   svc:"bq"      },
+  { time:"Today 13:55", event:"Data Ingestion API batch",         credits:-25,   svc:"api"     },
+  { time:"Today 12:10", event:"Report exported (PDF)",            credits:-1,    svc:"portal"  },
+  { time:"Today 11:30", event:"BigQuery scheduled query",         credits:-88,   svc:"bq"      },
+  { time:"Today 09:00", event:"Monthly Credit allocation loaded", credits:+5000, svc:"system"  },
+];
+
+const BADGE_MAP = {
+  bq:     { label:"BigQuery", color:"#0A6B9A" },
+  storage:{ label:"Storage",  color:"#00796B" },
+  api:    { label:"API",      color:"#6A4C93" },
+  portal: { label:"Portal",   color:"#E06C75" },
+  system: { label:"System",   color:"#00A896" },
 };
 
-// ── Mock data ──────────────────────────────────────────────────────────────
-const MONTHLY_ALLOC = 5000;
-
-const dailyUsage = [
-  { day: "Mar 1",  bq: 120, storage: 18, api: 65, portal: 5  },
-  { day: "Mar 3",  bq: 145, storage: 18, api: 80, portal: 8  },
-  { day: "Mar 5",  bq: 95,  storage: 19, api: 55, portal: 4  },
-  { day: "Mar 7",  bq: 210, storage: 19, api: 90, portal: 10 },
-  { day: "Mar 9",  bq: 160, storage: 20, api: 75, portal: 6  },
-  { day: "Mar 11", bq: 190, storage: 20, api: 85, portal: 8  },
-  { day: "Mar 13", bq: 130, storage: 20, api: 60, portal: 5  },
-  { day: "Mar 15", bq: 175, storage: 21, api: 95, portal: 9  },
-  { day: "Mar 17", bq: 200, storage: 21, api: 100,portal: 7  },
-  { day: "Mar 18", bq: 85,  storage: 10, api: 40, portal: 3  },
+const RATE_CARD = [
+  { name:"BigQuery Queries",       rate:"50 Credits / TB",           color:"#0A6B9A" },
+  { name:"BigQuery Storage",       rate:"0.2 Credits / GB/mo",       color:"#0A6B9A" },
+  { name:"Cloud Storage",          rate:"0.2 Credits / GB/mo",       color:"#00796B" },
+  { name:"GCS Egress",             rate:"0.8 Credits / GB",          color:"#00796B" },
+  { name:"Data Ingestion API",     rate:"5 Credits / 1K calls",      color:"#6A4C93" },
+  { name:"Analytics API",          rate:"3 Credits / 1K calls",      color:"#6A4C93" },
+  { name:"Compliance API",         rate:"2 Credits / 1K calls",      color:"#6A4C93" },
+  { name:"Portal Access",          rate:"Included — no charge",      color:"#00A896" },
+  { name:"Portal Report Export",   rate:"1 Credit / export",         color:"#E06C75" },
+  { name:"Scheduled Data Exports", rate:"3 Credits / job/mo",        color:"#E06C75" },
 ];
 
-const serviceBreakdown = [
-  { name: "BigQuery Queries",    credits: 1510, rate: "50 Credits / TB",      color: C.bq      },
-  { name: "BigQuery Storage",    credits: 290,  rate: "0.2 Credits / GB/mo",  color: C.bq      },
-  { name: "Cloud Storage",       credits: 230,  rate: "0.2 Credits / GB/mo",  color: C.storage },
-  { name: "Data Ingestion API",  credits: 650,  rate: "5 Credits / 1K calls", color: C.api     },
-  { name: "Analytics API",       credits: 310,  rate: "3 Credits / 1K calls", color: C.api     },
-  { name: "Portal Exports",      credits: 110,  rate: "1 Credit / export",    color: C.portal  },
-];
+const fmt = n => n.toLocaleString();
 
-const totalUsed   = serviceBreakdown.reduce((s, r) => s + r.credits, 0);
-const remaining   = MONTHLY_ALLOC - totalUsed;
-const pctUsed     = Math.round((totalUsed / MONTHLY_ALLOC) * 100);
+// ── Init static values ────────────────────────────────────────────────────
+function initStatic() {
+  // Sidebar
+  document.getElementById("sidebar-remaining").textContent = fmt(REM);
 
-const pieData = [
-  { name: "BigQuery",   value: 1800, color: C.bq      },
-  { name: "Storage",    value: 230,  color: C.storage },
-  { name: "APIs",       value: 960,  color: C.api     },
-  { name: "Portal",     value: 110,  color: C.portal  },
-  { name: "Remaining",  value: remaining, color: "#D6E4F0" },
-];
+  // Alert bar & topbar pill
+  if (PCT >= 75) {
+    const bar = document.getElementById("alert-bar");
+    bar.classList.add("show");
+    document.getElementById("alert-headline").textContent =
+      `Credit threshold alert — ${PCT}% of monthly allocation used`;
+    document.getElementById("alert-detail").textContent =
+      `${fmt(REM)} Data Credits remaining. Your team has been notified. Consider a top-up pack or reducing scheduled query frequency.`;
+    const pill = document.getElementById("topbar-alert");
+    pill.style.display = "flex";
+    pill.innerHTML = `<span style="width:7px;height:7px;border-radius:50%;background:#F5A623;display:inline-block;margin-right:6px"></span>${PCT}% used — alert active`;
+  }
 
-const recentActivity = [
-  { time: "Today 14:22", event: "BigQuery job completed",          credits: -42,   service: "bq"      },
-  { time: "Today 13:55", event: "Data Ingestion API batch",        credits: -25,   service: "api"     },
-  { time: "Today 12:10", event: "Report exported (PDF)",           credits: -1,    service: "portal"  },
-  { time: "Today 11:30", event: "BigQuery scheduled query",        credits: -88,   service: "bq"      },
-  { time: "Today 09:00", event: "Monthly Credit allocation loaded",credits: +5000, service: "system"  },
-];
+  // KPI cards
+  document.getElementById("kpi-alloc").textContent     = fmt(ALLOC) + " Credits";
+  document.getElementById("kpi-used").textContent      = fmt(USED)  + " Credits";
+  document.getElementById("kpi-used-sub").textContent  = `${PCT}% of monthly budget`;
+  document.getElementById("kpi-remaining").textContent = fmt(REM)   + " Credits";
+  document.getElementById("kpi-burn-sub").textContent  = `Projected ~${Math.round(REM/225)} days remaining`;
+  if (REM < 600) document.getElementById("kpi-rem-card").style.setProperty("--accent","#E53E3E");
 
-// ── Helpers ────────────────────────────────────────────────────────────────
-function fmt(n) { return n.toLocaleString(); }
+  // Gauge labels
+  document.getElementById("gauge-used-num").textContent  = fmt(USED);
+  document.getElementById("gauge-alloc-num").textContent = fmt(ALLOC);
+  document.getElementById("prog-bar-fill").style.width   = PCT + "%";
+  document.getElementById("prog-pct-label").textContent  = PCT + "% used";
+  if (PCT > 75) document.getElementById("prog-pct-label").style.color = "#F5A623";
 
-function ServiceBadge({ service }) {
-  const map = {
-    bq:     { label: "BigQuery", color: C.bq      },
-    storage:{ label: "Storage",  color: C.storage },
-    api:    { label: "API",      color: C.api     },
-    portal: { label: "Portal",   color: C.portal  },
-    system: { label: "System",   color: C.teal    },
-  };
-  const s = map[service] || map.system;
-  return (
-    <span style={{
-      background: s.color + "22", color: s.color, fontSize: 10, fontWeight: 700,
-      padding: "2px 9px", borderRadius: 999, border: `1px solid ${s.color}55`,
-      whiteSpace: "nowrap",
-    }}>{s.label}</span>
-  );
-}
-
-const CustomTooltip = ({ active, payload, label }) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div style={{
-      background: C.white, border: "1px solid #D6E4F0", borderRadius: 8,
-      padding: "10px 14px", fontSize: 12, boxShadow: "0 4px 16px rgba(0,0,0,0.1)",
-    }}>
-      <p style={{ fontWeight: 700, color: C.navy, marginBottom: 6 }}>{label}</p>
-      {payload.map(p => (
-        <p key={p.name} style={{ color: p.color, margin: "3px 0" }}>
-          {p.name}: <b>{fmt(p.value)} Credits</b>
-        </p>
-      ))}
-    </div>
-  );
-};
-
-// ── Gauge ──────────────────────────────────────────────────────────────────
-function GaugeMeter({ pct }) {
-  const radius = 72;
-  const circ   = Math.PI * radius;
-  const color  = pct > 90 ? C.warn : pct > 75 ? C.gold : C.teal;
-  const [animated, setAnimated] = useState(0);
-
-  useEffect(() => {
-    const t = setTimeout(() => setAnimated(pct), 100);
-    return () => clearTimeout(t);
-  }, [pct]);
-
-  const offset = circ * (1 - animated / 100);
-
-  return (
-    <svg width={200} height={116} viewBox="0 0 200 116" style={{ display: "block", margin: "0 auto" }}>
-      {/* track */}
-      <path d="M 16 100 A 84 84 0 0 1 184 100"
-        fill="none" stroke="#D6E4F0" strokeWidth={14} strokeLinecap="round" />
-      {/* fill */}
-      <path d="M 16 100 A 84 84 0 0 1 184 100"
-        fill="none" stroke={color} strokeWidth={14} strokeLinecap="round"
-        strokeDasharray={circ}
-        strokeDashoffset={offset}
-        style={{ transition: "stroke-dashoffset 1s cubic-bezier(.4,0,.2,1)", transitionDelay: "0.1s" }}
-      />
-      {/* tick marks */}
-      {[0, 25, 50, 75, 100].map(tick => {
-        const a = Math.PI - (tick / 100) * Math.PI;
-        const x = 100 + 84 * Math.cos(a);
-        const y = 100 - 84 * Math.sin(a);
-        return <circle key={tick} cx={x} cy={y} r={3} fill={tick <= pct ? color : "#C8DAE8"} />;
-      })}
-      <text x="100" y="88" textAnchor="middle" fontSize="30" fontWeight="800" fill={C.navy}>{pct}%</text>
-      <text x="100" y="108" textAnchor="middle" fontSize="11" fill={C.mid} fontWeight="500">of budget used</text>
-    </svg>
-  );
-}
-
-// ── Stat Card ──────────────────────────────────────────────────────────────
-function StatCard({ label, value, sub, color, icon }) {
-  return (
-    <div style={{
-      background: C.white, borderRadius: 12, padding: "18px 20px",
-      boxShadow: "0 1px 4px rgba(0,0,0,0.07)", border: "1px solid #D6E4F0",
-      borderTop: `3px solid ${color}`,
-    }}>
-      <div style={{ fontSize: 11, color: C.mid, fontWeight: 600, textTransform: "uppercase",
-                    letterSpacing: 0.9, marginBottom: 8 }}>{label}</div>
-      <div style={{ fontSize: 24, fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
-      {sub && <div style={{ fontSize: 11, color: C.mid, marginTop: 5 }}>{sub}</div>}
-    </div>
-  );
-}
-
-// ── Nav button ─────────────────────────────────────────────────────────────
-function NavBtn({ id, label, active, onClick }) {
-  return (
-    <button onClick={() => onClick(id)} style={{
-      display: "flex", alignItems: "center", width: "100%", textAlign: "left",
-      padding: "10px 20px", border: "none", cursor: "pointer", fontSize: 13,
-      fontWeight: active ? 700 : 400, background: active ? C.teal + "18" : "transparent",
-      color: active ? C.teal : C.navy,
-      borderLeft: active ? `3px solid ${C.teal}` : "3px solid transparent",
-      transition: "all 0.15s", borderRadius: "0 6px 6px 0", marginBottom: 2,
-    }}>{label}</button>
-  );
-}
-
-// ── Main Dashboard ─────────────────────────────────────────────────────────
-function Dashboard() {
-  const [tab, setTab] = useState("overview");
-
-  const navItems = [
-    { id: "overview",  label: "📊  Overview"      },
-    { id: "usage",     label: "📈  Usage Trend"   },
-    { id: "services",  label: "⚙️  Services"      },
-    { id: "alerts",    label: "🔔  Alerts"        },
+  // Pie legend
+  const pieColors = ["#0A6B9A","#00796B","#6A4C93","#E06C75","#D6E4F0"];
+  const pieData   = [
+    { name:"BigQuery", value:1800 }, { name:"Storage", value:230 },
+    { name:"APIs",     value:960  }, { name:"Portal",  value:110 },
+    { name:"Remaining",value:REM  },
   ];
+  const leg = document.getElementById("pie-legend");
+  pieData.forEach((p, i) => {
+    const row = document.createElement("div");
+    row.className = "pie-legend-row";
+    row.innerHTML = `<div class="pie-dot" style="background:${pieColors[i]}"></div>
+      <span class="pie-name">${p.name}</span>
+      <span class="pie-val" style="color:${pieColors[i]}">${fmt(p.value)}</span>`;
+    leg.appendChild(row);
+  });
+  const total = document.createElement("div");
+  total.style.cssText = "border-top:1px solid #EEF4FB;padding-top:8px;margin-top:2px;display:flex;justify-content:space-between;font-size:12px;font-weight:700";
+  total.innerHTML = `<span style="color:#8298B3">Total used</span><span style="color:#0A6B9A">${fmt(USED)}</span>`;
+  leg.appendChild(total);
 
-  return (
-    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+  // Activity table
+  const tbody = document.getElementById("activity-body");
+  ACTIVITY.forEach(a => {
+    const b = BADGE_MAP[a.svc];
+    const pos = a.credits > 0;
+    const big = a.credits < -50;
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td style="color:#8298B3;font-size:11px;white-space:nowrap">${a.time}</td>
+      <td>${a.event}</td>
+      <td><span class="badge" style="color:${b.color};background:${b.color}22;border-color:${b.color}55">${b.label}</span></td>
+      <td class="${pos ? "cr-pos" : big ? "cr-neg cr-big" : "cr-neg"}">${pos ? "+" : ""}${fmt(a.credits)}</td>`;
+    tbody.appendChild(row);
+  });
 
-      {/* ── Top Bar ── */}
-      <div style={{
-        background: C.navy, color: C.white, padding: "0 28px",
-        display: "flex", alignItems: "center", height: 58, flexShrink: 0,
-        boxShadow: "0 2px 10px rgba(0,0,0,0.25)",
-      }}>
-        {/* Logo */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{
-            background: C.teal, width: 30, height: 30, borderRadius: 7,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 16, fontWeight: 900, color: C.white, letterSpacing: -1,
-          }}>D</div>
-          <span style={{ fontWeight: 700, fontSize: 16 }}>DaaS Platform</span>
-          <span style={{ color: "#CADCFC55", fontSize: 18, margin: "0 4px" }}>|</span>
-          <span style={{ color: "#CADCFC", fontSize: 13 }}>Data Credits Dashboard</span>
+  // Services table
+  const svcBody = document.getElementById("svc-body");
+  let totalCr = 0;
+  SERVICES.forEach((svc, i) => {
+    totalCr += svc.credits;
+    const pct = Math.round(svc.credits / ALLOC * 100);
+    const barW = Math.min(pct * 5, 100);
+    const row = document.createElement("tr");
+    row.style.background = i % 2 === 0 ? "#fff" : "#FAFCFF";
+    row.innerHTML = `
+      <td><span class="svc-dot" style="background:${svc.color}"></span>${svc.name}</td>
+      <td style="text-align:right;font-weight:700;color:${svc.color}">${fmt(svc.credits)}</td>
+      <td style="text-align:right;color:#8298B3;font-size:12px">${svc.rate}</td>
+      <td style="text-align:right;font-weight:600">${pct}%</td>
+      <td style="text-align:right">
+        <div class="bar-cell">
+          <div class="bar-bg"><div class="bar-fill" style="width:${barW}%;background:${svc.color}"></div></div>
+          <span class="bar-pct">${pct}%</span>
         </div>
+      </td>`;
+    svcBody.appendChild(row);
+  });
+  const totRow = document.createElement("tr");
+  totRow.className = "svc-total-row";
+  totRow.innerHTML = `
+    <td style="padding:12px 13px">Total</td>
+    <td style="text-align:right;font-size:15px;font-weight:800;color:#0A6B9A;padding:12px 13px">${fmt(totalCr)}</td>
+    <td colspan="3" style="text-align:right;color:#8298B3;font-size:12px;padding:12px 13px">
+      ${fmt(REM)} Credits remaining · ${PCT}% of ${fmt(ALLOC)} monthly allocation
+    </td>`;
+  svcBody.appendChild(totRow);
 
-        {/* Right */}
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 14 }}>
-          {/* Alert dot */}
-          {pctUsed >= 75 && (
-            <div style={{
-              display: "flex", alignItems: "center", gap: 6,
-              background: C.gold + "22", border: `1px solid ${C.gold}55`,
-              borderRadius: 20, padding: "4px 12px", fontSize: 12, color: C.gold, fontWeight: 600,
-            }}>
-              <span style={{ width: 7, height: 7, borderRadius: "50%", background: C.gold, display: "inline-block" }} />
-              {pctUsed}% used — threshold alert active
-            </div>
-          )}
-          <div style={{
-            background: "#FFFFFF18", borderRadius: 7, padding: "5px 13px",
-            fontSize: 12, color: "#CADCFC", fontWeight: 500, letterSpacing: 0.3,
-          }}>gcp-daas-alpha-001</div>
-          <div style={{
-            width: 34, height: 34, borderRadius: "50%", background: C.teal,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 13, fontWeight: 800, color: C.white, letterSpacing: -0.5,
-          }}>BA</div>
-        </div>
+  // Rate card
+  const rcGrid = document.getElementById("rate-card-grid");
+  RATE_CARD.forEach(r => {
+    const div = document.createElement("div");
+    div.className = "rate-row";
+    div.style.borderColor = r.color + "44";
+    div.innerHTML = `
+      <div class="rate-name">
+        <span style="width:8px;height:8px;border-radius:2px;background:${r.color};display:inline-block;flex-shrink:0"></span>
+        ${r.name}
       </div>
+      <span class="rate-val" style="color:${r.color}">${r.rate}</span>`;
+    rcGrid.appendChild(div);
+  });
 
-      <div style={{ display: "flex", flex: 1 }}>
-
-        {/* ── Sidebar ── */}
-        <div style={{
-          width: 210, background: C.white, borderRight: "1px solid #D6E4F0",
-          padding: "20px 0", flexShrink: 0, display: "flex", flexDirection: "column",
-        }}>
-          <div style={{ padding: "0 20px 12px", fontSize: 10, fontWeight: 700,
-                        color: C.mid, letterSpacing: 1.5, textTransform: "uppercase" }}>
-            Navigation
-          </div>
-          {navItems.map(n => <NavBtn key={n.id} {...n} active={tab === n.id} onClick={setTab} />)}
-
-          <div style={{ margin: "20px 16px 0", borderTop: "1px solid #EEF4FB", paddingTop: 18, flex: 1 }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: C.mid, letterSpacing: 1.5,
-                          textTransform: "uppercase", marginBottom: 12 }}>Account</div>
-            {[
-              ["Customer",  "Bank Alpha"],
-              ["Tier",      "Professional"],
-              ["Period",    "March 2026"],
-              ["Days left", "13 days"],
-            ].map(([k, v]) => (
-              <div key={k} style={{ display: "flex", justifyContent: "space-between",
-                                    fontSize: 12, marginBottom: 8, color: C.navy }}>
-                <span style={{ color: C.mid }}>{k}</span>
-                <span style={{ fontWeight: 600 }}>{v}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Remaining balance pill in sidebar */}
-          <div style={{ margin: "16px 14px 0" }}>
-            <div style={{
-              background: remaining < 600 ? C.warn + "15" : C.teal + "15",
-              border: `1px solid ${remaining < 600 ? C.warn : C.teal}44`,
-              borderRadius: 10, padding: "12px 14px", textAlign: "center",
-            }}>
-              <div style={{ fontSize: 10, color: C.mid, fontWeight: 600,
-                            textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4 }}>
-                Remaining
-              </div>
-              <div style={{ fontSize: 22, fontWeight: 800,
-                            color: remaining < 600 ? C.warn : C.teal }}>{fmt(remaining)}</div>
-              <div style={{ fontSize: 10, color: C.mid, marginTop: 2 }}>Data Credits</div>
-            </div>
-          </div>
+  // Alerts grid
+  const alertsGrid = document.getElementById("alerts-grid");
+  [
+    { pct:75,  label:"Warning",  ac:"#F5A623", fired:true,
+      msg:"Fired Mar 17 at 16:42 — 3,750 Credits consumed",
+      rcpt:"ops@bankalpha.com, finance@bankalpha.com" },
+    { pct:90,  label:"Critical", ac:"#E53E3E", fired:false,
+      msg:`Will fire at 4,500 Credits — ${fmt(4500-USED)} Credits until breach`,
+      rcpt:"ops@bankalpha.com, cto@bankalpha.com" },
+    { pct:100, label:"Exhausted",ac:"#1B2A4A", fired:false,
+      msg:"Auto-notifies your DaaS account team — top-up or pause options presented",
+      rcpt:"ops@bankalpha.com + DaaS Account Team" },
+  ].forEach(a => {
+    const div = document.createElement("div");
+    div.className = "alert-panel" + (a.fired ? " fired" : "");
+    div.style.setProperty("--ac", a.ac);
+    div.innerHTML = `
+      <div class="alert-header">
+        <div class="alert-name">
+          <span class="alert-dot"></span>${a.label} — ${a.pct}%
         </div>
-
-        {/* ── Main ── */}
-        <div style={{ flex: 1, padding: "24px 28px", overflowY: "auto", minWidth: 0 }}>
-
-          {/* Alert banner */}
-          {pctUsed >= 75 && (
-            <div style={{
-              background: "#FFFBEB", border: `1px solid ${C.gold}88`,
-              borderRadius: 10, padding: "12px 18px", marginBottom: 20,
-              display: "flex", alignItems: "flex-start", gap: 12,
-            }}>
-              <span style={{ fontSize: 20, lineHeight: 1.3 }}>⚠️</span>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 13, color: "#92400E", marginBottom: 2 }}>
-                  Credit threshold alert — {pctUsed}% of monthly allocation used
-                </div>
-                <div style={{ fontSize: 12, color: "#B45309" }}>
-                  {fmt(remaining)} Data Credits remaining. Your team has been notified. Consider a top-up pack
-                  or reducing scheduled query frequency for the rest of the month.
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ─── OVERVIEW ─── */}
-          {tab === "overview" && <>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 20 }}>
-              <h2 style={{ fontSize: 20, fontWeight: 700 }}>Overview — March 2026</h2>
-              <span style={{ fontSize: 12, color: C.mid }}>Last updated: Mar 18, 2026 at 14:22</span>
-            </div>
-
-            {/* KPI row */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 22 }}>
-              <StatCard label="Monthly Allocation" value={`${fmt(MONTHLY_ALLOC)} Credits`} sub="$500 / month · Professional tier" color={C.ocean} />
-              <StatCard label="Credits Used" value={`${fmt(totalUsed)} Credits`} sub={`${pctUsed}% of monthly budget`} color={C.teal} />
-              <StatCard label="Credits Remaining" value={`${fmt(remaining)} Credits`} sub="13 days left in period" color={remaining < 600 ? C.warn : C.teal} />
-              <StatCard label="Daily Burn Rate" value="225 Credits" sub={`Projected end: ${Math.round(remaining / 225)} days`} color={C.mid} />
-            </div>
-
-            {/* Gauge + Pie */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1.7fr", gap: 16, marginBottom: 20 }}>
-              {/* Gauge */}
-              <div style={{
-                background: C.white, borderRadius: 12, padding: "22px 20px",
-                boxShadow: "0 1px 4px rgba(0,0,0,0.07)", border: "1px solid #D6E4F0",
-              }}>
-                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 14 }}>Budget Utilisation</div>
-                <GaugeMeter pct={pctUsed} />
-                <div style={{ textAlign: "center", marginTop: 10 }}>
-                  <span style={{ fontSize: 26, fontWeight: 800, color: C.ocean }}>{fmt(totalUsed)}</span>
-                  <span style={{ fontSize: 13, color: C.mid }}> / {fmt(MONTHLY_ALLOC)} Credits</span>
-                </div>
-                {/* Bar */}
-                <div style={{ background: "#D6E4F0", borderRadius: 999, height: 8, margin: "14px 0 6px" }}>
-                  <div style={{
-                    background: `linear-gradient(90deg, ${C.teal}, ${pctUsed > 90 ? C.warn : C.ocean})`,
-                    width: `${pctUsed}%`, height: "100%", borderRadius: 999,
-                    transition: "width 1s ease",
-                  }} />
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: C.mid }}>
-                  <span>⚠ 75% alert threshold</span>
-                  <span style={{ color: pctUsed > 75 ? C.gold : C.mid }}>{pctUsed}% used</span>
-                </div>
-              </div>
-
-              {/* Pie */}
-              <div style={{
-                background: C.white, borderRadius: 12, padding: "22px 20px",
-                boxShadow: "0 1px 4px rgba(0,0,0,0.07)", border: "1px solid #D6E4F0",
-              }}>
-                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Credits by Service</div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <ResponsiveContainer width={200} height={190}>
-                    <PieChart>
-                      <Pie data={pieData} cx={95} cy={90} innerRadius={52} outerRadius={82}
-                           paddingAngle={2} dataKey="value" startAngle={90} endAngle={-270}>
-                        {pieData.map((e, i) => <Cell key={i} fill={e.color} />)}
-                      </Pie>
-                      <Tooltip formatter={(v, n) => [`${fmt(v)} Credits`, n]} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div style={{ flex: 1 }}>
-                    {pieData.map(p => (
-                      <div key={p.name} style={{
-                        display: "flex", alignItems: "center", gap: 8,
-                        marginBottom: 10, fontSize: 12,
-                      }}>
-                        <div style={{ width: 10, height: 10, borderRadius: 3, background: p.color, flexShrink: 0 }} />
-                        <span style={{ flex: 1, color: C.navy }}>{p.name}</span>
-                        <span style={{ fontWeight: 700, color: p.color }}>{fmt(p.value)}</span>
-                      </div>
-                    ))}
-                    <div style={{
-                      borderTop: "1px solid #EEF4FB", paddingTop: 8, marginTop: 2,
-                      display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 700,
-                    }}>
-                      <span style={{ color: C.mid }}>Total used</span>
-                      <span style={{ color: C.ocean }}>{fmt(totalUsed)}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Recent Activity */}
-            <div style={{
-              background: C.white, borderRadius: 12, padding: "20px 22px",
-              boxShadow: "0 1px 4px rgba(0,0,0,0.07)", border: "1px solid #D6E4F0",
-            }}>
-              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 16 }}>Recent Activity</div>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                <thead>
-                  <tr style={{ background: C.light }}>
-                    {["Time", "Event", "Service", "Credits"].map(h => (
-                      <th key={h} style={{
-                        textAlign: h === "Credits" ? "right" : "left",
-                        padding: "8px 12px", color: C.mid, fontWeight: 600,
-                        fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8,
-                        borderBottom: "2px solid #D6E4F0",
-                      }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentActivity.map((a, i) => (
-                    <tr key={i} style={{ borderBottom: "1px solid #EEF4FB" }}>
-                      <td style={{ padding: "10px 12px", color: C.mid, whiteSpace: "nowrap", fontSize: 11 }}>{a.time}</td>
-                      <td style={{ padding: "10px 12px", color: C.navy }}>{a.event}</td>
-                      <td style={{ padding: "10px 12px" }}><ServiceBadge service={a.service} /></td>
-                      <td style={{
-                        padding: "10px 12px", fontWeight: 700, textAlign: "right",
-                        color: a.credits > 0 ? C.teal : a.credits < -50 ? C.warn : C.navy,
-                      }}>
-                        {a.credits > 0 ? "+" : ""}{fmt(a.credits)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>}
-
-          {/* ─── USAGE TREND ─── */}
-          {tab === "usage" && <>
-            <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 20 }}>Daily Usage Trend — March 2026</h2>
-
-            <div style={{
-              background: C.white, borderRadius: 12, padding: "22px 22px 18px",
-              boxShadow: "0 1px 4px rgba(0,0,0,0.07)", border: "1px solid #D6E4F0", marginBottom: 18,
-            }}>
-              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Cumulative Credit spend — stacked by service</div>
-              <div style={{ fontSize: 12, color: C.mid, marginBottom: 18 }}>Credits consumed per day</div>
-              <ResponsiveContainer width="100%" height={260}>
-                <AreaChart data={dailyUsage} margin={{ top: 4, right: 12, left: -10, bottom: 0 }}>
-                  <defs>
-                    {[["bq", C.bq], ["storage", C.storage], ["api", C.api], ["portal", C.portal]].map(([k, color]) => (
-                      <linearGradient key={k} id={`grad-${k}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%"  stopColor={color} stopOpacity={0.55} />
-                        <stop offset="95%" stopColor={color} stopOpacity={0.05} />
-                      </linearGradient>
-                    ))}
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#EEF4FB" />
-                  <XAxis dataKey="day" tick={{ fontSize: 11, fill: C.mid }} />
-                  <YAxis tick={{ fontSize: 11, fill: C.mid }} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
-                  <Area type="monotone" dataKey="bq"      name="BigQuery" stackId="1" stroke={C.bq}      fill={`url(#grad-bq)`}      strokeWidth={2} />
-                  <Area type="monotone" dataKey="storage"  name="Storage" stackId="1" stroke={C.storage} fill={`url(#grad-storage)`} strokeWidth={2} />
-                  <Area type="monotone" dataKey="api"      name="APIs"    stackId="1" stroke={C.api}     fill={`url(#grad-api)`}     strokeWidth={2} />
-                  <Area type="monotone" dataKey="portal"   name="Portal"  stackId="1" stroke={C.portal}  fill={`url(#grad-portal)`}  strokeWidth={2} />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div style={{
-              background: C.white, borderRadius: 12, padding: "22px 22px 18px",
-              boxShadow: "0 1px 4px rgba(0,0,0,0.07)", border: "1px solid #D6E4F0",
-            }}>
-              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>Credits by service per day</div>
-              <div style={{ fontSize: 12, color: C.mid, marginBottom: 18 }}>Side-by-side comparison of top consumers</div>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={dailyUsage} margin={{ top: 4, right: 12, left: -10, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#EEF4FB" />
-                  <XAxis dataKey="day" tick={{ fontSize: 11, fill: C.mid }} />
-                  <YAxis tick={{ fontSize: 11, fill: C.mid }} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
-                  <Bar dataKey="bq"  name="BigQuery" fill={C.bq}      radius={[4,4,0,0]} maxBarSize={28} />
-                  <Bar dataKey="api" name="APIs"     fill={C.api}     radius={[4,4,0,0]} maxBarSize={28} />
-                  <Bar dataKey="storage" name="Storage" fill={C.storage} radius={[4,4,0,0]} maxBarSize={28} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </>}
-
-          {/* ─── SERVICES ─── */}
-          {tab === "services" && <>
-            <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 20 }}>Service Breakdown & Rate Card</h2>
-
-            <div style={{
-              background: C.white, borderRadius: 12, overflow: "hidden",
-              boxShadow: "0 1px 4px rgba(0,0,0,0.07)", border: "1px solid #D6E4F0", marginBottom: 18,
-            }}>
-              <div style={{ padding: "16px 22px", borderBottom: "1px solid #EEF4FB",
-                            fontSize: 13, fontWeight: 700 }}>
-                This Month's Credit Consumption
-              </div>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                <thead>
-                  <tr style={{ background: C.light }}>
-                    {["Service", "Credits Used", "Published Rate", "% of Budget", "Utilisation"].map((h, i) => (
-                      <th key={h} style={{
-                        padding: "10px 18px", textAlign: i >= 1 ? "right" : "left",
-                        color: C.mid, fontWeight: 600, fontSize: 11,
-                        textTransform: "uppercase", letterSpacing: 0.8,
-                        borderBottom: "2px solid #D6E4F0",
-                      }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {serviceBreakdown.map((svc, i) => {
-                    const pct = Math.round((svc.credits / MONTHLY_ALLOC) * 100);
-                    const barW = Math.min(pct * 5, 100);
-                    return (
-                      <tr key={i} style={{
-                        borderTop: "1px solid #EEF4FB",
-                        background: i % 2 === 0 ? C.white : "#FAFCFF",
-                      }}>
-                        <td style={{ padding: "13px 18px" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                            <div style={{ width: 11, height: 11, borderRadius: 3, background: svc.color }} />
-                            <span style={{ fontWeight: 600 }}>{svc.name}</span>
-                          </div>
-                        </td>
-                        <td style={{ padding: "13px 18px", textAlign: "right", fontWeight: 700, color: svc.color }}>
-                          {fmt(svc.credits)}
-                        </td>
-                        <td style={{ padding: "13px 18px", textAlign: "right", color: C.mid, fontSize: 12 }}>
-                          {svc.rate}
-                        </td>
-                        <td style={{ padding: "13px 18px", textAlign: "right", color: C.navy, fontWeight: 600 }}>
-                          {pct}%
-                        </td>
-                        <td style={{ padding: "13px 18px", textAlign: "right", minWidth: 180 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
-                            <div style={{ flex: 1, background: "#EEF4FB", borderRadius: 999, height: 7 }}>
-                              <div style={{
-                                background: svc.color, width: `${barW}%`,
-                                height: "100%", borderRadius: 999,
-                                transition: "width 0.6s ease",
-                              }} />
-                            </div>
-                            <span style={{ fontSize: 11, color: C.mid, minWidth: 28, textAlign: "right" }}>{pct}%</span>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  <tr style={{ borderTop: "2px solid #D6E4F0", background: "#EEF4FB" }}>
-                    <td style={{ padding: "13px 18px", fontWeight: 700 }}>Total</td>
-                    <td style={{ padding: "13px 18px", textAlign: "right", fontWeight: 800, color: C.ocean, fontSize: 15 }}>
-                      {fmt(totalUsed)}
-                    </td>
-                    <td colSpan={3} style={{ padding: "13px 18px", textAlign: "right", color: C.mid, fontSize: 12 }}>
-                      {fmt(remaining)} Credits remaining · {pctUsed}% of {fmt(MONTHLY_ALLOC)} monthly allocation
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            {/* Rate card reference */}
-            <div style={{
-              background: C.navy, borderRadius: 12, padding: "20px 22px",
-              boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
-            }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: C.white, marginBottom: 14 }}>
-                📋  Published Rate Card
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                {[
-                  { svc: "BigQuery Queries",      rate: "50 Credits / TB processed",    color: C.bq      },
-                  { svc: "BigQuery Storage",       rate: "0.2 Credits / GB / month",     color: C.bq      },
-                  { svc: "Cloud Storage",          rate: "0.2 Credits / GB / month",     color: C.storage },
-                  { svc: "Cloud Storage Egress",   rate: "0.8 Credits / GB transferred", color: C.storage },
-                  { svc: "Data Ingestion API",     rate: "5 Credits / 1,000 calls",      color: C.api     },
-                  { svc: "Analytics API",          rate: "3 Credits / 1,000 calls",      color: C.api     },
-                  { svc: "Compliance API",         rate: "2 Credits / 1,000 calls",      color: C.api     },
-                  { svc: "Portal Access",          rate: "Included — no charge",         color: C.teal    },
-                  { svc: "Portal Report Export",   rate: "1 Credit / export",            color: C.portal  },
-                  { svc: "Scheduled Data Exports", rate: "3 Credits / job / month",      color: C.portal  },
-                ].map(r => (
-                  <div key={r.svc} style={{
-                    display: "flex", justifyContent: "space-between", alignItems: "center",
-                    background: "#FFFFFF0D", borderRadius: 7, padding: "9px 13px",
-                    border: `1px solid ${r.color}33`,
-                  }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ width: 8, height: 8, borderRadius: 2, background: r.color }} />
-                      <span style={{ fontSize: 12, color: "#CADCFC" }}>{r.svc}</span>
-                    </div>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: r.color }}>{r.rate}</span>
-                  </div>
-                ))}
-              </div>
-              <div style={{ marginTop: 12, fontSize: 11, color: C.mid, fontStyle: "italic" }}>
-                ★  Rates are fixed for the duration of your contract term. 1 Data Credit = $0.10 of platform value.
-              </div>
-            </div>
-          </>}
-
-          {/* ─── ALERTS ─── */}
-          {tab === "alerts" && <>
-            <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 20 }}>Alert Configuration</h2>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 18 }}>
-              {[
-                { pct: 75,  label: "Warning",  color: C.gold,  fired: true,
-                  msg: "Fired Mar 17 at 16:42 — 3,750 Credits consumed",
-                  recipients: "ops@bankalpha.com, finance@bankalpha.com" },
-                { pct: 90,  label: "Critical", color: C.warn,  fired: false,
-                  msg: `Will fire at 4,500 Credits — ${fmt(4500 - totalUsed)} Credits until breach`,
-                  recipients: "ops@bankalpha.com, cto@bankalpha.com" },
-                { pct: 100, label: "Exhausted",color: C.navy,  fired: false,
-                  msg: "Auto-notifies your DaaS account team — top-up or usage pause options presented",
-                  recipients: "ops@bankalpha.com + DaaS Account Team" },
-              ].map(a => (
-                <div key={a.pct} style={{
-                  background: a.fired ? a.color + "0C" : C.white,
-                  borderRadius: 12, padding: 20,
-                  boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
-                  border: `1px solid ${a.fired ? a.color + "88" : "#D6E4F0"}`,
-                }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                      <div style={{ width: 11, height: 11, borderRadius: "50%", background: a.color }} />
-                      <span style={{ fontWeight: 700, fontSize: 14, color: C.navy }}>
-                        {a.label} — {a.pct}%
-                      </span>
-                    </div>
-                    <span style={{
-                      fontSize: 11, padding: "3px 10px", borderRadius: 999, fontWeight: 700,
-                      background: a.fired ? a.color + "22" : "#EEF4FB",
-                      color: a.fired ? a.color : C.mid,
-                    }}>
-                      {a.fired ? "🔔 FIRED" : "● ARMED"}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: 12, color: "#555", marginBottom: 10, lineHeight: 1.5 }}>{a.msg}</div>
-                  <div style={{ fontSize: 11, color: C.mid }}>
-                    <span style={{ fontWeight: 600 }}>Notify: </span>{a.recipients}
-                  </div>
-                </div>
-              ))}
-
-              {/* Top-up CTA */}
-              <div style={{
-                background: C.teal + "10", border: `1px solid ${C.teal}44`,
-                borderRadius: 12, padding: 20,
-              }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: C.teal, marginBottom: 6 }}>
-                  🔋  Purchase a Credit Top-Up
-                </div>
-                <div style={{ fontSize: 12, color: C.navy, marginBottom: 16, lineHeight: 1.5 }}>
-                  Top up your balance for the rest of March. Credits are available immediately
-                  after purchase and carry no expiry within the current contract term.
-                </div>
-                {[
-                  { credits: "500 Credits",   price: "$55",   saving: null },
-                  { credits: "1,000 Credits", price: "$100",  saving: "Save $10" },
-                  { credits: "5,000 Credits", price: "$450",  saving: "Save $50" },
-                ].map(t => (
-                  <div key={t.credits} style={{
-                    display: "flex", justifyContent: "space-between", alignItems: "center",
-                    padding: "11px 0", borderBottom: "1px solid #D6E4F088",
-                  }}>
-                    <div>
-                      <span style={{ fontWeight: 600, fontSize: 13, color: C.navy }}>{t.credits}</span>
-                      {t.saving && (
-                        <span style={{
-                          marginLeft: 8, fontSize: 10, fontWeight: 700, color: C.teal,
-                          background: C.teal + "18", padding: "2px 7px", borderRadius: 999,
-                        }}>{t.saving}</span>
-                      )}
-                    </div>
-                    <button style={{
-                      background: C.teal, color: C.white, border: "none",
-                      padding: "7px 18px", borderRadius: 7, fontSize: 12,
-                      fontWeight: 700, cursor: "pointer", transition: "opacity 0.15s",
-                    }}
-                    onMouseOver={e => e.target.style.opacity = 0.85}
-                    onMouseOut={e => e.target.style.opacity = 1}>
-                      Buy {t.price}
-                    </button>
-                  </div>
-                ))}
-                <div style={{ marginTop: 12, fontSize: 11, color: C.mid, fontStyle: "italic" }}>
-                  Top-up credits are billed separately to your monthly subscription.
-                  Contact your account manager for volume pricing.
-                </div>
-              </div>
-            </div>
-          </>}
-
-        </div>
+        <span class="alert-status ${a.fired ? "status-fired" : "status-armed"}">
+          ${a.fired ? "🔔 FIRED" : "● ARMED"}
+        </span>
       </div>
-    </div>
-  );
+      <div class="alert-msg">${a.msg}</div>
+      <div class="alert-rcpt"><strong>Notify:</strong> ${a.rcpt}</div>`;
+    alertsGrid.appendChild(div);
+  });
+
+  // Top-up box
+  const topupDiv = document.createElement("div");
+  topupDiv.className = "topup-box";
+  topupDiv.innerHTML = `
+    <div class="topup-title">🔋  Purchase a Credit Top-Up</div>
+    <div class="topup-desc">Top up your balance for the rest of March. Credits are available immediately and carry no expiry within your current contract term.</div>
+    ${[
+      {cr:"500 Credits",   price:"$55",  saving:null},
+      {cr:"1,000 Credits", price:"$100", saving:"Save $10"},
+      {cr:"5,000 Credits", price:"$450", saving:"Save $50"},
+    ].map(t => `
+      <div class="topup-row">
+        <div class="topup-label">${t.cr}${t.saving ? `<span class="topup-saving">${t.saving}</span>` : ""}</div>
+        <button class="topup-btn" onclick="alert('Contact your account manager to purchase a top-up pack.')">Buy ${t.price}</button>
+      </div>`).join("")}
+    <div class="topup-note">Top-up credits are billed separately. Contact your account manager for volume pricing.</div>`;
+  alertsGrid.appendChild(topupDiv);
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(<Dashboard />);
+// ── Charts ────────────────────────────────────────────────────────────────
+function initCharts() {
+  // Doughnut gauge
+  const gCtx = document.getElementById("gaugeChart").getContext("2d");
+  new Chart(gCtx, {
+    type: "doughnut",
+    data: {
+      datasets: [{
+        data: [USED, REM],
+        backgroundColor: ["#00A896", "#D6E4F0"],
+        borderWidth: 0,
+        circumference: 200,
+        rotation: -100,
+      }]
+    },
+    options: {
+      responsive: false,
+      cutout: "78%",
+      plugins: { legend: { display: false }, tooltip: { enabled: false } },
+      animation: { animateRotate: true, duration: 900 },
+    }
+  });
+
+  // Donut pie
+  const pCtx = document.getElementById("pieChart").getContext("2d");
+  new Chart(pCtx, {
+    type: "doughnut",
+    data: {
+      labels: ["BigQuery","Storage","APIs","Portal","Remaining"],
+      datasets: [{
+        data: [1800, 230, 960, 110, REM],
+        backgroundColor: ["#0A6B9A","#00796B","#6A4C93","#E06C75","#D6E4F0"],
+        borderWidth: 2,
+        borderColor: "#fff",
+      }]
+    },
+    options: {
+      responsive: false,
+      cutout: "60%",
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${fmt(ctx.parsed)} Credits` } },
+      }
+    }
+  });
+
+  // Stacked area
+  const aCtx = document.getElementById("areaChart").getContext("2d");
+  const labels = DAILY.map(d => d.day);
+  const areaDatasets = [
+    { label:"BigQuery", key:"bq",      color:"#0A6B9A" },
+    { label:"Storage",  key:"storage", color:"#00796B" },
+    { label:"APIs",     key:"api",     color:"#6A4C93" },
+    { label:"Portal",   key:"portal",  color:"#E06C75" },
+  ].map(s => ({
+    label: s.label,
+    data: DAILY.map(d => d[s.key]),
+    fill: true,
+    borderColor: s.color,
+    backgroundColor: s.color + "55",
+    tension: 0.4,
+    pointRadius: 3,
+    pointBackgroundColor: s.color,
+    stack: "stack",
+  }));
+  new Chart(aCtx, {
+    type: "line",
+    data: { labels, datasets: areaDatasets },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: "bottom", labels: { font: { size: 12 }, boxWidth: 12 } },
+        tooltip: { mode: "index" },
+      },
+      scales: {
+        x: { grid: { color: "#EEF4FB" }, ticks: { color: "#8298B3", font: { size: 11 } } },
+        y: { grid: { color: "#EEF4FB" }, ticks: { color: "#8298B3", font: { size: 11 } }, stacked: true },
+      },
+    }
+  });
+
+  // Grouped bar
+  const bCtx = document.getElementById("barChart").getContext("2d");
+  const barDatasets = [
+    { label:"BigQuery", key:"bq",      color:"#0A6B9A" },
+    { label:"APIs",     key:"api",     color:"#6A4C93" },
+    { label:"Storage",  key:"storage", color:"#00796B" },
+  ].map(s => ({
+    label: s.label,
+    data: DAILY.map(d => d[s.key]),
+    backgroundColor: s.color + "CC",
+    borderColor: s.color,
+    borderWidth: 1,
+    borderRadius: 4,
+  }));
+  new Chart(bCtx, {
+    type: "bar",
+    data: { labels, datasets: barDatasets },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: "bottom", labels: { font: { size: 12 }, boxWidth: 12 } },
+        tooltip: { mode: "index" },
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: "#8298B3", font: { size: 11 } } },
+        y: { grid: { color: "#EEF4FB" }, ticks: { color: "#8298B3", font: { size: 11 } } },
+      },
+    }
+  });
+}
+
+// ── Tab switching ─────────────────────────────────────────────────────────
+document.querySelectorAll(".nav-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
+  });
+});
+
+// ── Run ───────────────────────────────────────────────────────────────────
+initStatic();
+initCharts();
 </script>
 </body>
 </html>
