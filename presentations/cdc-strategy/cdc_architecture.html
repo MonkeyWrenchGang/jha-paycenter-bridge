@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CDC Architecture — SQL Server to GCP | Jack Henry</title>
+<style>
+  :root {
+    --navy:      #06185F;
+    --cobalt:    #085CE5;
+    --tealLight: #76DCFD;
+    --green:     #1B6E3B;
+    --greenLight:#E8F5ED;
+    --purple:    #7B2D8B;
+    --purpleLight:#F3E8F7;
+    --orange:    #E65100;
+    --gray100:   #E7ECF0;
+    --gray300:   #B6BBC0;
+    --gray600:   #575A5D;
+    --white:     #FFFFFF;
+    --ibmBlue:   #0F62FE;
+    --striimOrg: #E65100;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Aptos', 'Segoe UI', Arial, sans-serif;
+    background: #F0F4F8;
+    color: var(--navy);
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    background: var(--navy);
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  }
+  header .logo {
+    display: flex; align-items: center; gap: 12px;
+  }
+  header .logo-mark {
+    width: 36px; height: 36px;
+    background: var(--cobalt);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 16px; color: white; letter-spacing: -1px;
+  }
+  header h1 {
+    color: white;
+    font-size: 18px; font-weight: 700; letter-spacing: 0.3px;
+  }
+  header .subtitle {
+    color: var(--tealLight); font-size: 12px; margin-top: 1px;
+  }
+  header .confidential {
+    color: var(--gray300); font-size: 11px;
+  }
+
+  /* ── Phase Controls ── */
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 32px;
+    background: white;
+    border-bottom: 2px solid var(--gray100);
+  }
+  .controls label { font-size: 13px; color: var(--gray600); font-weight: 600; margin-right: 4px; }
+  .phase-btn {
+    padding: 7px 20px;
+    border-radius: 20px;
+    border: 2px solid var(--gray300);
+    background: white;
+    font-size: 13px; font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--gray600);
+  }
+  .phase-btn:hover { border-color: var(--cobalt); color: var(--cobalt); }
+  .phase-btn.active-p1  { background: var(--purple);  border-color: var(--purple);  color: white; }
+  .phase-btn.active-p2  { background: var(--cobalt);  border-color: var(--cobalt);  color: white; }
+  .phase-btn.active-all { background: var(--navy);    border-color: var(--navy);    color: white; }
+
+  .legend {
+    display: flex; gap: 16px; margin-left: auto; align-items: center;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--gray600); }
+  .legend-line {
+    width: 32px; height: 3px;
+    border-radius: 2px;
+  }
+  .legend-line.p1 {
+    background: transparent;
+    border-top: 3px dashed var(--purple);
+  }
+  .legend-line.p2 {
+    background: var(--cobalt);
+  }
+
+  /* ── Main Canvas ── */
+  .canvas {
+    padding: 28px 32px 20px;
+    overflow-x: auto;
+  }
+
+  .diagram {
+    min-width: 900px;
+    position: relative;
+  }
+
+  /* ── Zone Containers ── */
+  .zones {
+    display: grid;
+    grid-template-columns: 220px 1fr 220px;
+    gap: 0;
+    align-items: stretch;
+    min-height: 520px;
+    position: relative;
+  }
+
+  .zone {
+    border-radius: 12px;
+    padding: 16px;
+    position: relative;
+  }
+  .zone-onprem {
+    background: rgba(6,24,95,0.05);
+    border: 2px solid rgba(6,24,95,0.18);
+  }
+  .zone-transit {
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 0 12px;
+    position: relative;
+  }
+  .zone-gcp {
+    background: rgba(27,110,59,0.05);
+    border: 2px solid rgba(27,110,59,0.22);
+  }
+
+  .zone-label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1px;
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 4px;
+    margin-bottom: 14px;
+  }
+  .zone-onprem .zone-label  { background: rgba(6,24,95,0.12);  color: var(--navy);  }
+  .zone-gcp    .zone-label  { background: rgba(27,110,59,0.15); color: var(--green); }
+
+  /* ── Component Boxes ── */
+  .comp {
+    background: white;
+    border: 2px solid var(--gray300);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+  }
+  .comp:hover {
+    border-color: var(--cobalt);
+    box-shadow: 0 4px 16px rgba(8,92,229,0.18);
+    transform: translateY(-2px);
+  }
+  .comp.highlighted {
+    border-color: var(--cobalt);
+    box-shadow: 0 0 0 3px rgba(8,92,229,0.15);
+  }
+
+  .comp-icon { font-size: 22px; margin-bottom: 4px; }
+  .comp-name { font-size: 13px; font-weight: 700; color: var(--navy); }
+  .comp-desc { font-size: 11px; color: var(--gray600); margin-top: 2px; line-height: 1.4; }
+
+  .comp-tag {
+    display: inline-block;
+    font-size: 10px; font-weight: 700;
+    padding: 2px 7px; border-radius: 10px;
+    margin-top: 6px;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .tag-p1 { background: var(--purpleLight); color: var(--purple); }
+  .tag-p2 { background: #E8F0FE; color: var(--cobalt); }
+  .tag-both { background: var(--gray100); color: var(--gray600); }
+
+  /* Phase visibility */
+  .p1-only, .p2-only { transition: opacity 0.3s; }
+  body.show-p2 .p1-only  { opacity: 0.18; pointer-events: none; }
+  body.show-p1 .p2-only  { opacity: 0.18; pointer-events: none; }
+
+  /* ── Transit / VPN zone ── */
+  .vpn-badge {
+    background: white;
+    border: 2px solid var(--gray300);
+    border-radius: 10px;
+    padding: 10px 16px;
+    text-align: center;
+    margin-top: 60px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 150px;
+  }
+  .vpn-badge:hover {
+    border-color: var(--cobalt);
+    box-shadow: 0 4px 14px rgba(8,92,229,0.16);
+    transform: translateY(-2px);
+  }
+  .vpn-icon { font-size: 20px; }
+  .vpn-name { font-size: 12px; font-weight: 700; color: var(--navy); margin-top: 4px; }
+  .vpn-desc { font-size: 10px; color: var(--gray600); margin-top: 2px; }
+
+  /* ── Animated Flow Arrows (SVG overlay) ── */
+  .flow-svg {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    overflow: visible;
+  }
+
+  .flow-path {
+    fill: none;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+  }
+  .flow-path.p1 {
+    stroke: var(--purple);
+    stroke-dasharray: 8 5;
+    animation: dash-p1 1.6s linear infinite;
+  }
+  .flow-path.p2 {
+    stroke: var(--cobalt);
+    stroke-dasharray: 0;
+  }
+  @keyframes dash-p1 {
+    to { stroke-dashoffset: -52; }
+  }
+
+  .flow-dot {
+    r: 5;
+    animation: travel 2s linear infinite;
+  }
+  .flow-dot.p1 { fill: var(--purple); }
+  .flow-dot.p2 { fill: var(--cobalt); }
+
+  /* ── Engine Panel (center of transit) ── */
+  .engine-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+    width: 100%;
+  }
+  .engine-label {
+    font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1px;
+    color: var(--gray600);
+    margin-bottom: 2px;
+  }
+  .engine-comp {
+    background: white;
+    border-radius: 10px;
+    padding: 12px 18px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.1);
+    width: 180px;
+  }
+  .engine-comp:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.14);
+  }
+  .engine-comp.debezium {
+    border: 2.5px dashed var(--purple);
+  }
+  .engine-comp.iidr {
+    border: 2.5px solid var(--ibmBlue);
+  }
+  .engine-comp.striim {
+    border: 2.5px solid var(--striimOrg);
+  }
+  .engine-comp.qlik {
+    border: 2.5px solid #4CAF50;
+  }
+  .engine-comp-icon { font-size: 24px; }
+  .engine-comp-name { font-size: 13px; font-weight: 700; margin-top: 4px; }
+  .engine-comp-sub  { font-size: 10px; color: var(--gray600); margin-top: 2px; }
+  .engine-comp.debezium .engine-comp-name { color: var(--purple); }
+  .engine-comp.iidr     .engine-comp-name { color: var(--ibmBlue); }
+  .engine-comp.striim   .engine-comp-name { color: var(--striimOrg); }
+
+  /* GCP targets */
+  .gcp-target {
+    background: white;
+    border: 2px solid var(--gray300);
+    border-radius: 8px;
+    padding: 9px 12px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .gcp-target:hover {
+    border-color: var(--green);
+    box-shadow: 0 3px 12px rgba(27,110,59,0.15);
+    transform: translateX(2px);
+  }
+  .gcp-target-icon { font-size: 18px; flex-shrink: 0; }
+  .gcp-target-name { font-size: 12px; font-weight: 700; color: var(--navy); }
+  .gcp-target-desc { font-size: 10px; color: var(--gray600); }
+
+  /* ── Tooltip ── */
+  #tooltip {
+    position: fixed;
+    z-index: 9999;
+    background: var(--navy);
+    color: white;
+    border-radius: 10px;
+    padding: 16px 18px;
+    max-width: 320px;
+    min-width: 220px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.32);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  #tooltip.visible { opacity: 1; }
+  #tooltip h3 {
+    font-size: 14px; font-weight: 700;
+    margin-bottom: 6px; color: var(--tealLight);
+  }
+  #tooltip .tt-section {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(118,220,253,0.2);
+  }
+  #tooltip .tt-section-label {
+    font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--tealLight); margin-bottom: 3px;
+  }
+  #tooltip ul { padding-left: 14px; }
+  #tooltip li { margin-bottom: 3px; }
+  #tooltip .warn { color: #FFD700; }
+  #tooltip .good { color: #5BFF9F; }
+
+  /* ── Info Panel ── */
+  .info-panel {
+    background: white;
+    border-radius: 10px;
+    border: 1px solid var(--gray100);
+    padding: 16px 20px;
+    margin: 0 32px 24px;
+    display: flex; gap: 24px;
+    flex-wrap: wrap;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+  }
+  .info-panel h4 { font-size: 12px; font-weight: 700; color: var(--gray600); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
+  .info-panel p  { font-size: 13px; color: var(--navy); line-height: 1.5; }
+  .info-col { flex: 1; min-width: 180px; }
+  .phase-badge {
+    display: inline-block;
+    padding: 3px 12px;
+    border-radius: 12px;
+    font-size: 12px; font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .badge-p1 { background: var(--purpleLight); color: var(--purple); }
+  .badge-p2 { background: #E8F0FE; color: var(--cobalt); }
+
+  /* ── Flow label badges ── */
+  .zone-transit .section-title {
+    font-size: 12px; font-weight: 700; color: var(--gray600);
+    text-align: center; margin-bottom: 8px;
+    text-transform: uppercase; letter-spacing: 0.8px;
+  }
+
+  /* Divider line in transit */
+  .transit-divider {
+    width: 2px;
+    background: var(--gray100);
+    height: 80px;
+    border-radius: 2px;
+    margin: 8px auto;
+  }
+</style>
+</head>
+<body class="show-all">
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-mark">JH</div>
+    <div>
+      <div><h1>CDC Architecture</h1></div>
+      <div class="subtitle">MS SQL Server → GCP  ·  Phased Migration Strategy</div>
+    </div>
+  </div>
+  <div class="confidential">Jack Henry™  |  Client Confidential</div>
+</header>
+
+<!-- CONTROLS -->
+<div class="controls">
+  <label>Show Phase:</label>
+  <button class="phase-btn active-all" onclick="setPhase('all')">Both Phases</button>
+  <button class="phase-btn" onclick="setPhase('p1')">Phase 1 Only</button>
+  <button class="phase-btn" onclick="setPhase('p2')">Phase 2 Only</button>
+
+  <div class="legend">
+    <div class="legend-item">
+      <div class="legend-line p1"></div>
+      <span>Phase 1 · Native CDC + Debezium</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-line p2"></div>
+      <span>Phase 2 · Enterprise Log-Based CDC</span>
+    </div>
+  </div>
+</div>
+
+<!-- TOOLTIP -->
+<div id="tooltip"></div>
+
+<!-- MAIN DIAGRAM -->
+<div class="canvas">
+  <div class="diagram">
+    <div class="zones" id="zones">
+
+      <!-- LEFT: ON-PREMISES -->
+      <div class="zone zone-onprem">
+        <div class="zone-label">🏢 On-Premises</div>
+
+        <div class="comp"
+          data-title="MS SQL Server"
+          data-what="Production SQL Server database. Source of all change events."
+          data-phase="Source"
+          data-admin="• Ensure SQL Server version 2016+ (CDC-capable)&#10;• sysadmin or db_owner on source DB&#10;• Port 1433 open to CDC engine host"
+          data-warn="• Shared prod instance — minimize agent footprint&#10;• Log retention must cover replication lag"
+          data-good="• Native transaction log is the gold standard for capture&#10;• No application code changes needed"
+          onmouseenter="showTip(event, this)" onmouseleave="hideTip()">
+          <div class="comp-icon">🗄️</div>
+          <div class="comp-name">MS SQL Server</div>
+          <div class="comp-desc">Production database<br>Port 1433</div>
+          <span class="comp-tag tag-both">Source</span>
+        </div>
+
+        <div class="comp p1-only"
+          data-title="SQL Server CDC Tables"
+          data-what="Native SQL Server CDC feature. Populates _CT (change table) shadow tables in the same database. Requires SQL Server Agent."
+          data-phase="Phase 1"
+          data-admin="• EXEC sys.sp_cdc_enable_db&#10;• EXEC sys.sp_cdc_enable_table per table&#10;• SQL Server Agent must be RUNNING&#10;• Monitor cdc.lsn_time_mapping for lag"
+          data-warn="• SQL Server Agent = single point of failure&#10;• Change tables live IN prod DB (disk growth)&#10;• AG failover can pause capture job&#10;• Debezium POLLS these tables (not true log-read)"
+          data-good="• Zero licensing cost&#10;• Built into SQL Server 2016+"
+          onmouseenter="showTip(event, this)" onmouseleave="hideTip()">
+          <div class="comp-icon">📋</div>
+          <div class="comp-name">CDC Change Tables</div>
+          <div class="comp-desc">_CT shadow tables<br>Requires SQL Agent</div>
+          <span class="comp-tag tag-p1">Phase 1</span>
+        </div>
+
+        <div class="comp p2-only"
+          data-title="SQL Server Transaction Log"
+          data-what="The WAL (Write-Ahead Log) of SQL Server. Enterprise CDC engines read this directly — zero additional DB objects, zero SQL Agent dependency."
+          data-phase="Phase 2"
+          data-admin="• Set DB recovery model to FULL&#10;• Grant VIEW SERVER STATE to CDC user&#10;• Firewall: allow CDC engine to reach 1433&#10;• Validate log retention ≥ replication lag window"
+          data-warn="• Log reads require FULL recovery model&#10;• Log shipping conflicts possible — coordinate with DBA"
+          data-good="• No SQL Agent dependency&#10;• No change tables in prod DB&#10;• AG failover handled automatically by IIDR/Striim&#10;• ~0% additional load on SQL Server"
+          onmouseenter="showTip(event, this)" onmouseleave="hideTip()">
+          <div class="comp-icon">📜</div>
+          <div class="comp-name">Transaction Log (WAL)</div>
+          <div class="comp-desc">Direct log read<br>Full recovery model</div>
+          <span class="comp-tag tag-p2">Phase 2</span>
+        </div>
+
+        <div class="comp"
+          data-title="Always On Availability Group"
+          data-what="High-availability SQL Server topology. CDC engines must be AG-aware to follow the primary replica on failover."
+          data-phase="Infrastructure"
+          data-admin="• Document primary + secondary replica endpoints&#10;• Phase 1: CDC jobs must be re-enabled on new primary after failover&#10;• Phase 2: IIDR/Striim auto-follow AG primary — configure AG listener endpoint"
+          data-warn="• Phase 1 AG failover PAUSES capture — manual re-enable needed&#10;• Native CDC jobs are instance-specific"
+          data-good="• Phase 2 engines (IIDR, Striim) are AG-aware — seamless failover"
+          onmouseenter="showTip(event, this)" onmouseleave="hideTip()">
+          <div class="comp-icon">🔄</div>
+          <div class="comp-name">Always On AG</div>
+          <div class="comp-desc">HA/DR topology<br>Primary + secondary</div>
+          <span class="comp-tag tag-both">Infrastructure</span>
+        </div>
+      </div>
+
+      <!-- CENTER: TRANSIT + ENGINES -->
+      <div class="zone zone-transit">
+        <div style="text-align:center; width:100%;">
+          <div class="zone-label" style="background:rgba(118,220,253,0.15); color:#06185F; display:inline-block; margin-bottom:8px;">⚡ CDC Engines + Network</div>
+        </div>
+
+        <!-- VPN Badge -->
+        <div class="vpn-badge"
+          data-title="VPN / Cloud Interconnect"
+          data-what="Encrypted tunnel from on-prem network to GCP VPC. Options: Cloud VPN (IPsec, up to 3Gbps per tunnel) or Dedicated Interconnect (10/100Gbps, SLA-backed)."
+          data-phase="Network"
+          data-admin="• Cloud VPN: configure IKEv2, BGP routing, static routes&#10;• Dedicated Interconnect: order colocation or partner, configure VLAN attachment&#10;• Firewall rules: allow 1433 outbound, Kafka 9092, BigQuery HTTPS 443"
+          data-warn="• VPN latency 5–30ms — acceptable for streaming CDC&#10;• Bandwidth cap affects initial snapshot throughput"
+          data-good="• Dedicated Interconnect provides sub-5ms latency&#10;• Encrypted in transit end-to-end"
+          onmouseenter="showTip(event, this)" onmouseleave="hideTip()">
+          <div class="vpn-icon">🔒</div>
+          <div class="vpn-name">VPN / Cloud Interconnect</div>
+          <div class="vpn-desc">Encrypted • BGP routing</div>
+        </div>
+
+        <div class="engine-area">
+          <!-- Phase 1 engines -->
+          <div class="p1-only" style="width:100%; text-align:center;">
+            <div class="engine-label">Phase 1 Engines</div>
+            <div style="display:flex; flex-direction:column; align-items:center; gap:10px;">
+              <div class="engine-comp debezium p1-only"
+                data-title="Debezium + Kafka Connect"
+                data-what="Open-source CDC connector running inside Kafka Connect. Polls SQL Server CDC change tables every configured interval and publishes to Kafka topics."
+                data-phase="Phase 1"
+                data-admin="• Deploy Kafka + Zookeeper cluster (or Confluent Cloud)&#10;• Install Debezium SQL Server connector JAR&#10;• Configure connector JSON: db host, user, tables&#10;• Set poll.interval.ms (default 1000ms)&#10;• Create Kafka topics per source table&#10;• Monitor consumer lag in Kafka UI"
+                data-warn="• Polls CDC tables — NOT true log-based&#10;• SQL Agent must be running on SQL Server&#10;• Kafka cluster adds operational overhead&#10;• No native BigQuery Writer — needs Kafka Connect GCP Sink&#10;• Schema evolution requires manual connector update"
+                data-good="• Open source / zero license cost&#10;• Large community + connector ecosystem&#10;• Exactly-once semantics via Kafka transactions"
+                onmouseenter="showTip(event, this)" onmouseleave="hideTip()">
+                <div class="engine-comp-icon">⚙️</div>
+                <div class="engine-comp-name">Debezium + Kafka</div>
+                <div class="engine-comp-sub">Polls CDC tables • OSS</div>
+              </div>
+
+              <div class="engine-comp debezium p1-only" style="border-style:solid; border-color: var(--purple); color: var(--purple);"
+                data-title="GCS Sink / BigQuery Sink Connector"
+                data-what="Kafka Connect sink connectors that consume from Kafka topics and write to GCP targets (GCS or BigQuery directly)."
+                data-phase="Phase 1"
+                data-admin="• Install Confluent BigQuery Sink or GCS Sink connector&#10;• Configure GCP service account with BigQuery Data Editor&#10;• Set topics.to.tables mapping&#10;• Handle schema registry for Avro/JSON&#10;• Monitor sink lag and DLQ (dead letter queue)"
+                data-warn="• Additional connector to manage and version&#10;• BigQuery Sink has schema-at-write constraints&#10;• Large initial loads can overwhelm BQ streaming API"
+                data-good="• Pluggable — swap targets without changing capture layer&#10;• Supports multiple GCP targets from one Kafka cluster"
+                onmouseenter="showTip(event, this)" onmouseleave="hideTip()">
+                <div class="engine-comp-icon">🔌</div>
+                <div class="engine-comp-name">Kafka Sink Connectors</div>
+                <div class="engine-comp-sub">GCS · BigQuery · Pub/Sub</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="transit-divider p1-only p2-only" style="height:16px; width:2px; background: var(--gray300); border-radius:2px;"></div>
+
+          <!-- Phase 2 engines -->
+          <div class="p2-only" style="width:100%; text-align:center;">
+            <div class="engine-label">Phase 2 Engines</div>
+            <div style="display:flex; flex-direction:column; align-items:center; gap:10px;">
+
+              <div class="engine-comp iidr p2-only"
+                data-title="IBM InfoSphere Data Replication (IIDR)"
+                data-what="Enterprise log-based CDC. Reads SQL Server transaction log directly via proprietary log reader. Deployed on Compute Engine VM."
+                data-phase="Phase 2"
+                data-admin="• Install IIDR agent on GCE e2-standard-4 VM&#10;• Install IIDR Management Console&#10;• Configure source datastore (SQL Server host, port, creds)&#10;• Configure target datastore (BigQuery, GCS, Kafka)&#10;• Define replication subscriptions (table mappings)&#10;• Enable Automated Schema Evolution (ASE)&#10;• Register with IIDR Access Server&#10;• Set log reader latency thresholds in Health Monitor"
+                data-warn="• IBM licensing cost (per-core or capacity)&#10;• Steep learning curve for Management Console&#10;• Requires IBM support contract for production&#10;• Less native BigQuery support than Striim"
+                data-good="• Direct transaction log read — zero SQL Agent&#10;• AG-aware auto-failover&#10;• Automated schema evolution — handles DDL changes&#10;• Proven at banking/financial scale&#10;• Very low latency (sub-second)"
+                onmouseenter="showTip(event, this)" onmouseleave="hideTip()">
+                <div class="engine-comp-icon">🔵</div>
+                <div class="engine-comp-name">IBM IIDR</div>
+                <div class="engine-comp-sub">Direct log read • Enterprise</div>
+              </div>
+
+              <div class="engine-comp striim p2-only"
+                data-title="Striim ⭐ Recommended"
+                data-what="Enterprise streaming CDC with native GCP integration. Direct SQL Server log reader, native BigQuery Writer, Streaming SQL transformation engine. SaaS or self-managed."
+                data-phase="Phase 2"
+                data-admin="• Deploy Striim on GCE e2-standard-4 (or use Striim Cloud SaaS)&#10;• Configure SQL Server Reader adapter (host, port, creds, tables)&#10;• Configure BigQuery Writer target (project, dataset, service account)&#10;• Set initial-load mode (snapshot before streaming)&#10;• Define Streaming SQL pipeline with transformations&#10;• Enable schema migration in BigQuery Writer&#10;• Configure monitoring dashboards + email alerts&#10;• (SaaS) Striim manages infra — just configure adapters"
+                data-warn="• SaaS cost higher than self-managed&#10;• BigQuery streaming API costs apply&#10;• Initial load performance depends on network bandwidth"
+                data-good="⭐ RECOMMENDED for SQL Server → GCP&#10;• Native BigQuery Writer (purpose-built)&#10;• Direct log read — ~0% prod server load&#10;• Streaming SQL for in-flight transforms&#10;• AG-aware failover&#10;• SaaS option removes infrastructure burden&#10;• GCP Marketplace available"
+                onmouseenter="showTip(event, this)" onmouseleave="hideTip()">
+                <div class="engine-comp-icon">🟠</div>
+                <div class="engine-comp-name">Striim ⭐</div>
+                <div class="engine-comp-sub">Native BigQuery Writer • Recommended</div>
+              </div>
+
+              <div class="engine-comp qlik p2-only"
+                data-title="Qlik Replicate"
+                data-what="Enterprise CDC with broad source/target matrix. Direct SQL Server log reader, supports BigQuery, GCS, and 100+ other targets."
+                data-phase="Phase 2"
+                data-admin="• Install Qlik Replicate server (Windows or Linux)&#10;• Configure SQL Server source endpoint (log-based)&#10;• Configure BigQuery target endpoint&#10;• Define replication task (full load + CDC)&#10;• Set Apply Changes mode (batched or real-time)&#10;• Monitor via Qlik Replicate console"
+                data-warn="• Windows-native server (Linux support limited)&#10;• BigQuery support less mature than Striim&#10;• Per-task licensing model"
+                data-good="• 100+ source/target connectors&#10;• Strong SQL Server log reader&#10;• Good for multi-cloud or multi-target scenarios&#10;• Well-established in financial services"
+                onmouseenter="showTip(event, this)" onmouseleave="hideTip()">
+                <div class="engine-comp-icon">🟢</div>
+                <div class="engine-comp-name">Qlik Replicate</div>
+                <div class="engine-comp-sub">Broad connector matrix</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: GCP -->
+      <div class="zone zone-gcp">
+        <div class="zone-label">☁️ Google Cloud (GCP)</div>
+
+        <div class="gcp-target"
+          data-title="BigQuery"
+          data-what="GCP's serverless data warehouse. Primary analytics target. Striim native BigQuery Writer delivers row-level change events in near-real-time."
+          data-phase="Target"
+          data-admin="• Create dataset + target tables&#10;• Grant BigQuery Data Editor to CDC service account&#10;• Enable BigQuery Streaming API&#10;• Set table partitioning by _COMMIT_TIMESTAMP&#10;• Define column mapping in CDC engine&#10;• Monitor streaming buffer + table size"
+          data-warn="• Streaming API costs ~$0.01/200MB&#10;• Schema changes require manual ALTER TABLE or engine-managed migration&#10;• MERGE for upserts has quota limits at high velocity"
+          data-good="• Serverless — no infra to manage&#10;• SQL interface for analytics immediately&#10;• Integrates with Looker, Vertex AI, dbt"
+          onmouseenter="showTip(event, this)" onmouseleave="hideTip()">
+          <div class="gcp-target-icon">🏛️</div>
+          <div>
+            <div class="gcp-target-name">BigQuery</div>
+            <div class="gcp-target-desc">Primary analytics warehouse</div>
+          </div>
+        </div>
+
+        <div class="gcp-target"
+          data-title="Google Cloud Storage (GCS)"
+          data-what="Object storage for CDC event files. Used for bulk loads, archival of change events, or as landing zone before BigQuery load jobs."
+          data-phase="Target"
+          data-admin="• Create GCS bucket (regional, same as BQ dataset)&#10;• Grant Storage Object Creator to CDC service account&#10;• Configure CDC engine file format (Avro, JSON, Parquet)&#10;• Set object naming pattern (date-partitioned recommended)&#10;• Schedule BQ load jobs if not using streaming"
+          data-warn="• Not real-time — requires BQ load job scheduling&#10;• Object storage latency adds minutes to pipeline"
+          data-good="• Very low cost for archival&#10;• Good for initial bulk load then switch to streaming&#10;• Supports all file formats"
+          onmouseenter="showTip(event, this)" onmouseleave="hideTip()">
+          <div class="gcp-target-icon">🪣</div>
+          <div>
+            <div class="gcp-target-name">Cloud Storage (GCS)</div>
+            <div class="gcp-target-desc">Bulk loads · event archival</div>
+          </div>
+        </div>
+
+        <div class="gcp-target"
+          data-title="Pub/Sub"
+          data-what="GCP's managed messaging service. Receives CDC events as messages for downstream consumers (Dataflow, Cloud Functions, GKE services)."
+          data-phase="Target"
+          data-admin="• Create Pub/Sub topic per source table (or one merged topic)&#10;• Grant Pub/Sub Publisher to CDC service account&#10;• Configure message schema (Avro or JSON)&#10;• Set message retention (default 7 days)&#10;• Create subscriptions for downstream consumers"
+          data-warn="• Pub/Sub is fan-out — ordering guarantees require ordering keys&#10;• Dead-letter topics needed for poison messages"
+          data-good="• Push/pull to multiple consumers simultaneously&#10;• Triggers Cloud Functions for event-driven patterns&#10;• Native Dataflow integration for stream processing"
+          onmouseenter="showTip(event, this)" onmouseleave="hideTip()">
+          <div class="gcp-target-icon">📨</div>
+          <div>
+            <div class="gcp-target-name">Pub/Sub</div>
+            <div class="gcp-target-desc">Event streaming · fan-out</div>
+          </div>
+        </div>
+
+        <div class="gcp-target"
+          data-title="Compute Engine (CDC Host)"
+          data-what="GCE VM hosting the self-managed CDC engine (Striim, IIDR, or Kafka/Debezium). Recommended: e2-standard-4 (4 vCPU, 16GB RAM)."
+          data-phase="Infrastructure"
+          data-admin="• Provision e2-standard-4 in same region as BQ dataset&#10;• Attach persistent SSD for engine state/journal&#10;• Create VPC firewall rule: allow 1433 from this VM&#10;• Install CDC engine software + license key&#10;• Configure startup script for auto-restart&#10;• Set up Cloud Monitoring agent + alerting&#10;• Use Instance Group for HA (optional)"
+          data-warn="• Self-managed VM — patching, backups on you&#10;• SaaS Striim option eliminates this entirely&#10;• Disk I/O is bottleneck for high-volume capture"
+          data-good="• Full control over engine configuration&#10;• Can co-locate Kafka if needed for Phase 1&#10;• Reserved instances cut cost 30-40%"
+          onmouseenter="showTip(event, this)" onmouseleave="hideTip()">
+          <div class="gcp-target-icon">💻</div>
+          <div>
+            <div class="gcp-target-name">Compute Engine</div>
+            <div class="gcp-target-desc">CDC engine host · e2-standard-4</div>
+          </div>
+        </div>
+
+        <div class="gcp-target"
+          data-title="Dataflow"
+          data-what="GCP managed Apache Beam service. Used for in-flight stream processing of CDC events — enrichment, deduplication, windowed aggregations before landing in BigQuery."
+          data-phase="Optional"
+          data-admin="• Define Beam pipeline (Java or Python)&#10;• Deploy as streaming Dataflow job&#10;• Connect to Pub/Sub source and BQ sink&#10;• Set autoscaling min/max workers&#10;• Monitor via Dataflow UI + Cloud Monitoring"
+          data-warn="• Adds latency (seconds) and cost&#10;• Overkill for simple CDC pass-through&#10;• Java expertise needed for complex pipelines"
+          data-good="• Handles complex transformations at scale&#10;• Fully managed — no worker infra&#10;• Exactly-once semantics with Dataflow Runner v2"
+          onmouseenter="showTip(event, this)" onmouseleave="hideTip()">
+          <div class="gcp-target-icon">🌊</div>
+          <div>
+            <div class="gcp-target-name">Dataflow</div>
+            <div class="gcp-target-desc">Stream transforms · optional</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /zones -->
+  </div><!-- /diagram -->
+</div><!-- /canvas -->
+
+<!-- INFO PANEL -->
+<div class="info-panel">
+  <div class="info-col">
+    <div class="phase-badge badge-p1">Phase 1</div>
+    <h4>Native CDC + Debezium</h4>
+    <p>Use SQL Server's built-in CDC feature with Debezium/Kafka. Zero licensing cost, operational overhead from SQL Agent and Kafka cluster. Best for fast start.</p>
+  </div>
+  <div class="info-col">
+    <div class="phase-badge badge-p2">Phase 2 ⭐</div>
+    <h4>Enterprise Log-Based CDC</h4>
+    <p>IIDR or Striim read the transaction log directly. ~0% additional load on SQL Server. AG-aware, automated schema evolution. <strong>Striim recommended</strong> for native BigQuery integration.</p>
+  </div>
+  <div class="info-col">
+    <h4>Hover any component</h4>
+    <p>Mouseover any box to see what it does, administrator setup steps, trade-offs, and benefits. Use the Phase buttons above to focus on one migration path.</p>
+  </div>
+</div>
+
+<script>
+// ── Tooltip logic ──
+const tip = document.getElementById('tooltip');
+
+function showTip(e, el) {
+  const d = el.dataset;
+  let html = `<h3>${d.title}</h3>`;
+  if (d.what) html += `<p>${d.what}</p>`;
+  if (d.phase) html += `<div class="tt-section"><div class="tt-section-label">Phase / Role</div><p>${d.phase}</p></div>`;
+  if (d.admin) {
+    html += `<div class="tt-section"><div class="tt-section-label">⚙️ Admin Setup</div><ul>`;
+    d.admin.split('&#10;').forEach(s => { if (s.trim()) html += `<li>${s.replace(/^•\s*/,'')}</li>`; });
+    html += `</ul></div>`;
+  }
+  if (d.warn) {
+    html += `<div class="tt-section"><div class="tt-section-label">⚠️ Watch Out</div><ul>`;
+    d.warn.split('&#10;').forEach(s => { if (s.trim()) html += `<li class="warn">${s.replace(/^•\s*/,'')}</li>`; });
+    html += `</ul></div>`;
+  }
+  if (d.good) {
+    html += `<div class="tt-section"><div class="tt-section-label">✅ Benefits</div><ul>`;
+    d.good.split('&#10;').forEach(s => { if (s.trim()) html += `<li class="good">${s.replace(/^•\s*/,'')}</li>`; });
+    html += `</ul></div>`;
+  }
+  tip.innerHTML = html;
+  tip.classList.add('visible');
+  positionTip(e);
+}
+
+function hideTip() {
+  tip.classList.remove('visible');
+}
+
+function positionTip(e) {
+  const x = e.clientX, y = e.clientY;
+  const tw = tip.offsetWidth || 320;
+  const th = tip.offsetHeight || 300;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  let tx = x + 18;
+  let ty = y - 20;
+  if (tx + tw > vw - 16) tx = x - tw - 18;
+  if (ty + th > vh - 16) ty = vh - th - 16;
+  if (ty < 8) ty = 8;
+  tip.style.left = tx + 'px';
+  tip.style.top  = ty + 'px';
+}
+
+document.addEventListener('mousemove', e => {
+  if (tip.classList.contains('visible')) positionTip(e);
+});
+
+// ── Phase toggle ──
+function setPhase(phase) {
+  document.body.className = 'show-' + phase;
+  document.querySelectorAll('.phase-btn').forEach(b => {
+    b.className = 'phase-btn';
+    if (b.getAttribute('onclick').includes(phase)) {
+      b.classList.add('active-' + (phase === 'all' ? 'all' : phase));
+    }
+  });
+}
+
+// ── VPN badge wiring ──
+const vpnBadge = document.querySelector('.vpn-badge');
+if (vpnBadge) {
+  vpnBadge.addEventListener('mouseenter', e => showTip(e, vpnBadge));
+  vpnBadge.addEventListener('mouseleave', hideTip);
+}
+
+// ── Engine comp wiring ──
+document.querySelectorAll('.engine-comp').forEach(el => {
+  el.addEventListener('mouseenter', e => showTip(e, el));
+  el.addEventListener('mouseleave', hideTip);
+});
+</script>
+</body>
+</html>
